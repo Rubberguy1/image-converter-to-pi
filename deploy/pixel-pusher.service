@@ -1,0 +1,18 @@
+[Unit]
+Description=Pixel Pusher - LED matrix controller
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# The matrix library needs root for stable GPIO timing.
+User=root
+# Adjust this path if you cloned somewhere other than /home/pi/pixel-pusher.
+WorkingDirectory=/home/pi/pixel-pusher/backend
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=/home/pi/pixel-pusher/backend/.env
+ExecStart=/home/pi/pixel-pusher/backend/.venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --loop asyncio
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

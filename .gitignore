@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+backend/.venv/
+
+# Secrets / local config — never commit these
+.env
+*.env
+!*.env.example
+backend/.env
+backend/.env.local
+
+# Backend data (uploaded media + library index)
+backend/data/
+
+# Node / frontend build output
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp

@@ -1,0 +1,16 @@
+# Core backend (works on any OS for local development with the emulator)
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+pydantic==2.10.4
+pydantic-settings==2.7.1
+Pillow==11.1.0
+httpx==0.28.1
+
+# Matrix emulator — drop-in replacement for the rgbmatrix API used for local dev.
+# On the Pi you install the real library separately (see docs/PI_SETUP.md) which
+# provides the `rgbmatrix` module that this code prefers when present.
+RGBMatrixEmulator==0.12.0
+
+# Music providers
+plexapi==4.16.1
