@@ -102,6 +102,7 @@ export default function App() {
             <Editor
               key={selected.id}
               item={selected}
+              pwmBits={status.matrix.pwm_bits}
               onPushed={refreshStatus}
               onToast={showToast}
             />

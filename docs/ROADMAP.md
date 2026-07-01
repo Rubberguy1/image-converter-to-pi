@@ -32,6 +32,18 @@ Status key: 🟢 easy · 🟡 medium · 🔴 large · 💡 idea/needs design
 - 🟢 **Per-item playback speed** for GIFs (slow-mo / speed-up).
 - 💡 **Video clip support.** Short MP4 → frames pipeline (careful with size/CPU).
 - 💡 **Live drawing / pixel-art editor** in the browser, pushed straight to the panel.
+- 🔴💡 **Retro "arcade mode" (GBA/SNES/NES at 60fps).** A *separate* program on the
+  Pi (not the web app — 60fps can't stream over HTTP): a libretro frontend
+  (mGBA/snes9x) that opens the RGBMatrix with the app's saved panel config and
+  pushes each emulated frame, with a USB/Bluetooth gamepad. Realities:
+  - Native 1:1 needs many panels — SNES/NES 256×240 ≈ 4×4 = 256×256 (16× 64×64,
+    16px letterbox); GBA 240×160 ≈ 4×3 with a border. 64×32 panels tile SNES
+    256×224 exactly (4×7). This is a big, ~300W+ wall for full native.
+  - Needs Pi 4 + Active-3 (parallel chains) and reduced `pwm_bits` (7–8) to hold
+    a 100Hz+ refresh while accepting 60fps.
+  - Pi 4 emulates these systems at full speed easily; the panel side is the limit.
+  - Integrate loosely: the web app could offer a "launch arcade mode" button that
+    stops the display service and starts the emulator, sharing panel settings.
 
 ## Music sync
 
@@ -71,14 +83,16 @@ Status key: 🟢 easy · 🟡 medium · 🔴 large · 💡 idea/needs design
 
 ## Done ✅
 
-- Image/GIF upload, crop, auto-fit, live preview
+- Image/GIF upload, crop, live preview
+- Fit modes: cover / contain / native (1:1) / integer-zoom / stretch
 - Animated-GIF preview and playback
+- Color-depth (PWM bit-depth) simulation in the preview
 - Music album-art sync (Plex / VLC / Last.fm) with spinning-CD effect
 - True-circle spinning disc (correct on non-square panels)
 - Panel-based geometry (panels wide/tall), orientation, and power/PSU estimate
-- Settings menu (panel + credentials + WLED) with live apply
+- Settings menu (panel layout + color/flicker tuning + credentials + WLED), live apply
 - Live panel mirror in the music panel
 - WLED power sync (panel ↔ lights, HTTP)
-- Emulator-based development workflow
-- FM6126A / panel-type + GPIO tuning options
+- Emulator-based dev workflow + `npm run dev` orchestrator + `update.sh`
+- FM6126A / panel-type + GPIO / PWM-LSB / refresh tuning (incl. flicker recipe)
 - systemd service + one-shot Pi installer

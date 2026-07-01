@@ -101,17 +101,26 @@ for (const child of children) {
   });
 }
 
+function killTree(child) {
+  if (!child || child.killed) return;
+  try {
+    if (isWin) {
+      // On Windows child.kill() leaves grandchildren (uvicorn's --reload worker,
+      // the emulator server) alive, orphaning ports 8000/8888. /T kills the tree.
+      spawnSync("taskkill", ["/PID", String(child.pid), "/T", "/F"], { stdio: "ignore" });
+    } else {
+      child.kill();
+    }
+  } catch {
+    /* already gone */
+  }
+}
+
 let shuttingDown = false;
 function shutdown() {
   if (shuttingDown) return;
   shuttingDown = true;
-  for (const child of children) {
-    try {
-      child.kill();
-    } catch {
-      /* already gone */
-    }
-  }
+  for (const child of children) killTree(child);
   process.exit(0);
 }
 

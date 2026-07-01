@@ -25,15 +25,21 @@ on/off state of your WLED lights.
 
 ## Features
 
-- **Upload any image or GIF**, crop interactively, and auto-fit to the panel.
+- **Upload any image or GIF**, crop interactively, and fit it to the panel — with
+  **Cover / Contain / Native (1:1) / Integer-zoom / Stretch** modes for pixel-perfect
+  placement of small art.
 - **Live panel preview** in the browser — see exactly what the matrix shows,
-  including animated GIFs.
+  including animated GIFs and a **color-depth simulation** of reduced-PWM banding.
 - **Music album-art sync** with a spinning-CD effect. Providers for **Plex**,
   **VLC**, and **Last.fm** (universal — works with YouTube Music and anything that
   scrobbles).
 - **WLED power sync** — blank/wake the panel with your WLED lights (or vice versa).
+- **In-app Settings menu** — panel layout (multi-panel, orientation), color depth &
+  flicker tuning, brightness, and all provider credentials — no `.env` editing needed.
+- **Wattage / PSU estimate** in the header, based on your configured panel count.
 - **Develop without hardware** — a built-in emulator renders the panel in your
-  browser, so you can build and test on any OS.
+  browser (`npm run dev` starts backend + frontend together), so you can build and
+  test on any OS.
 - **Runs headless on the Pi** as a systemd service and serves its own web UI.
 
 ## Why this design
@@ -110,8 +116,15 @@ bash deploy/install-pi.sh
 It builds the matrix library, sets up Python, builds the web app, and installs a
 systemd service that auto-starts on boot. Then open `http://raspberrypi.local:8000`.
 
+To **update** an existing Pi later, pull and re-apply in one step:
+
+```bash
+cd ~/pixel-pusher && bash deploy/update.sh
+```
+
 For the manual walkthrough (and hardware/wiring), see
-[docs/PI_SETUP.md](docs/PI_SETUP.md) and [docs/HARDWARE.md](docs/HARDWARE.md).
+[docs/PI_SETUP.md](docs/PI_SETUP.md) and [docs/HARDWARE.md](docs/HARDWARE.md). For
+the day-to-day edit/test loop, see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ## Configuration
 
@@ -123,6 +136,7 @@ defaults. **Never commit your `.env`** — it's gitignored.
 
 - [docs/HARDWARE.md](docs/HARDWARE.md) — parts list, wiring, power, scaling to multiple panels
 - [docs/PI_SETUP.md](docs/PI_SETUP.md) — full Raspberry Pi setup
+- [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) — how to iterate & test changes on the Pi
 - [docs/SCALING_PLAN.md](docs/SCALING_PLAN.md) — planning a multi-panel wall
 - [docs/ROADMAP.md](docs/ROADMAP.md) — planned improvements & ideas
 - [CONTRIBUTING.md](CONTRIBUTING.md) — how to contribute

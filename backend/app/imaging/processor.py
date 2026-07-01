@@ -14,7 +14,7 @@ from typing import Literal, Union
 
 from PIL import Image, ImageDraw, ImageEnhance, ImageSequence
 
-FitMode = Literal["cover", "contain", "stretch"]
+FitMode = Literal["cover", "contain", "stretch", "center", "integer"]
 
 # Default frame duration when a GIF frame doesn't declare one.
 _DEFAULT_FRAME_MS = 100
@@ -79,6 +79,23 @@ def _fit(img: Image.Image, opts: RenderOptions) -> Image.Image:
 
     if opts.fit == "stretch":
         return img.resize((tw, th), Image.LANCZOS)
+
+    if opts.fit == "center":
+        # No scaling: place the source at its native pixel size, centred, on a
+        # black panel. If it's larger than the panel it is centre-cropped.
+        canvas = Image.new("RGB", (tw, th), opts.background)
+        canvas.paste(img, ((tw - sw) // 2, (th - sh) // 2))
+        return canvas
+
+    if opts.fit == "integer":
+        # Largest whole-number zoom that still fits, centred. NEAREST keeps pixel
+        # art crisp. Falls back to 1x (centre-crop) if the source is bigger.
+        scale = max(1, min(tw // sw, th // sh))
+        nw, nh = sw * scale, sh * scale
+        resized = img.resize((nw, nh), Image.NEAREST)
+        canvas = Image.new("RGB", (tw, th), opts.background)
+        canvas.paste(resized, ((tw - nw) // 2, (th - nh) // 2))
+        return canvas
 
     if opts.fit == "contain":
         scale = min(tw / sw, th / sh)
@@ -228,6 +245,37 @@ def render_disc_frames(source: Source, opts: RenderOptions, spin: SpinOptions) -
         frame.paste(square, (off_x, off_y))
         out.append(Frame(frame, frame_ms))
     return out
+
+
+_PANEL_MAX_BITS = 11        # rgbmatrix default; treat as the "full" reference
+_PANEL_GAMMA = 2.2          # approximates the library's luminance correction
+
+
+def simulate_bit_depth(image: Image.Image, bits: int, gamma: float = _PANEL_GAMMA) -> Image.Image:
+    """Approximate how the panel's PWM colour depth looks at `bits` bits/channel.
+
+    The panel produces light with 2**bits linear PWM steps but is driven through a
+    gamma curve, so reduced depth bands mainly in the DARK tones (many dark inputs
+    collapse to the same few PWM steps). We model that by decoding to linear light,
+    quantising to the PWM step count, and re-encoding — so 8-bit shows realistic
+    shadow banding rather than looking identical to the 8-bit source. `bits` at or
+    above the panel's native depth is returned unchanged.
+    """
+    bits = int(bits)
+    if bits >= _PANEL_MAX_BITS:
+        return image
+    bits = max(1, bits)
+    levels = (1 << bits) - 1
+    lut = []
+    for i in range(256):
+        v = i / 255.0
+        linear = v ** gamma                      # decode to linear light output
+        quantised = round(linear * levels) / levels  # snap to available PWM steps
+        out = quantised ** (1.0 / gamma)         # re-encode for display
+        lut.append(round(out * 255))
+    if image.mode != "RGB":
+        image = image.convert("RGB")
+    return image.point(lut * 3)
 
 
 def make_thumbnail(source: Path | str, size: int = 128) -> Image.Image:

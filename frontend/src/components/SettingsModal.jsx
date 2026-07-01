@@ -35,6 +35,20 @@ const TABS = [
         fields: [
           { key: "matrix_brightness", label: "Brightness", type: "slider", min: 0, max: 100 },
           {
+            key: "matrix_pwm_bits",
+            label: "Color depth (preview updates live)",
+            type: "select",
+            hint: "11 is the max for the Pi library (rpi-rgb-led-matrix). The panel supports 12-bit only with other controllers (Adafruit Protomatter on ESP32/SAMD, FPGA). Preview is an approximation — verify on hardware.",
+            options: [
+              { value: 11, label: "11-bit — full (Pi library max)" },
+              { value: 10, label: "10-bit" },
+              { value: 9, label: "9-bit" },
+              { value: 8, label: "8-bit — bands dark tones" },
+              { value: 7, label: "7-bit — visible banding" },
+              { value: 6, label: "6-bit — high refresh, heavy banding" },
+            ],
+          },
+          {
             key: "matrix_panel_type",
             label: "Panel chip",
             type: "select",
@@ -45,6 +59,22 @@ const TABS = [
             ],
           },
           { key: "matrix_gpio_slowdown", label: "GPIO slowdown", type: "number", min: 0, max: 6 },
+          {
+            key: "matrix_pwm_lsb_nanoseconds",
+            label: "PWM LSB (ns)",
+            type: "number",
+            min: 50,
+            max: 500,
+            hint: "The main anti-flicker knob. Lower = higher refresh. Too low causes ghosting/black not fully off. Try 100; back off if you see trails.",
+          },
+          {
+            key: "matrix_limit_refresh_rate_hz",
+            label: "Refresh cap (Hz)",
+            type: "number",
+            min: 0,
+            max: 1000,
+            hint: "0 = unlimited. Pin to a steady value (e.g. 120) only if refresh varies visibly.",
+          },
           {
             key: "matrix_hardware_mapping",
             label: "Wiring",
@@ -294,6 +324,7 @@ function Field({ field, value, settings, onChange }) {
           onChange={(e) => onChange(e.target.value)}
         />
       )}
+      {f.hint && <span className="field-hint">{f.hint}</span>}
     </div>
   );
 }

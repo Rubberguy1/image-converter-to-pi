@@ -29,7 +29,7 @@ function buildSettings(useCrop, area, fit, color) {
   };
 }
 
-export default function Editor({ item, onPushed, onToast }) {
+export default function Editor({ item, onPushed, onToast, pwmBits }) {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [areaPercent, setAreaPercent] = useState(null);
@@ -76,7 +76,7 @@ export default function Editor({ item, onPushed, onToast }) {
     }, 250);
     return () => clearTimeout(previewTimer.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [item.id, useCrop, areaPercent, fit, color.brightness, color.contrast, color.saturation]);
+  }, [item.id, useCrop, areaPercent, fit, color.brightness, color.contrast, color.saturation, pwmBits]);
 
   const onCropComplete = useCallback((_area, areaPct) => {
     // react-easy-crop gives the cropped area both in pixels and percent; we use
@@ -161,20 +161,25 @@ export default function Editor({ item, onPushed, onToast }) {
 
         <div className="settings-col">
           <div className="preview-box">
-            <span className="preview-label">Panel preview (64×64)</span>
+            <span className="preview-label">Panel preview</span>
             {previewUrl ? (
               <img className="panel-preview" src={previewUrl} alt="preview" />
             ) : (
               <div className="panel-preview placeholder">…</div>
             )}
             {item.animated && <span className="badge">GIF · animated</span>}
+            {pwmBits < 11 && (
+              <span className="badge depth">simulating {pwmBits}-bit color</span>
+            )}
           </div>
 
           <div className="control">
             <label>Fit mode</label>
             <select value={fit} onChange={(e) => setFit(e.target.value)}>
               <option value="cover">Cover (fill, crop overflow)</option>
-              <option value="contain">Contain (letterbox)</option>
+              <option value="contain">Contain (letterbox, scale to fit)</option>
+              <option value="center">Native (1:1, centered — no scaling)</option>
+              <option value="integer">Integer zoom (crisp pixels)</option>
               <option value="stretch">Stretch</option>
             </select>
           </div>

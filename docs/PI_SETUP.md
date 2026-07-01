@@ -199,6 +199,36 @@ A solid **white turning reddish** with uneven brightness means the panel isn't
 getting enough clean current — that's a power/wiring issue, not software. See
 [HARDWARE.md](HARDWARE.md).
 
+## Fixing flicker (a proven recipe)
+
+If colours are correct but you see a faint line flicker, it's a **refresh-rate**
+problem — you want the panel refreshing above ~120 Hz. Check the live rate:
+
+```bash
+sudo ~/rpi-rgb-led-matrix/examples-api-use/demo -D0 --led-rows=64 --led-cols=64 \
+  --led-gpio-mapping=adafruit-hat --led-panel-type=FM6126A --led-show-refresh
+```
+
+Work through these (most were discovered the hard way on a Pi 3 + Adafruit HAT):
+
+1. **Blacklist on-board sound** (it shares hardware with the matrix and causes
+   flicker): `lsmod | grep snd_bcm2835` should print nothing — see step 4 above.
+2. **`isolcpus=3`** in `/boot/firmware/cmdline.txt` (Bookworm) or `/boot/cmdline.txt`
+   (older) then reboot — dedicates a core, stabilises the low end of the refresh.
+3. **`MATRIX_PWM_LSB_NANOSECONDS`** is usually the real fix. Lower it (e.g. **100**)
+   to raise the refresh rate. Too low causes **ghosting** (trails, blacks not fully
+   off) — back off if you see that. This one knob took a Pi 3 from ~98 Hz to ~125 Hz.
+4. Note: reducing **colour depth** (`MATRIX_PWM_BITS`) and **GPIO slowdown** often
+   do *not* help refresh much — test with `--led-pwm-lsb-nanoseconds` /
+   `--led-pwm-bits` on the demo before committing to a setting. Keep 11-bit if
+   lowering it doesn't buy refresh.
+5. The definitive hardware fix: the **GPIO4↔GPIO18 solder mod** +
+   `MATRIX_HARDWARE_MAPPING=adafruit-hat-pwm` (hardware PWM for output-enable).
+
+All of `MATRIX_PWM_BITS`, `MATRIX_PWM_LSB_NANOSECONDS`, `MATRIX_LIMIT_REFRESH_RATE_HZ`,
+`MATRIX_GPIO_SLOWDOWN`, and orientation/geometry are editable from **Settings →
+Panel** in the web UI (a restart applies the hardware ones).
+
 ## Music setup quick-reference
 
 - **Last.fm (covers YouTube Music):** create an API key at

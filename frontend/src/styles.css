@@ -22,7 +22,8 @@ body {
 }
 
 .app {
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden; /* the app fills the viewport; panes scroll internally */
   display: flex;
   flex-direction: column;
 }
@@ -199,7 +200,11 @@ main {
 }
 .editor-grid {
   display: grid;
-  grid-template-columns: 1fr 320px;
+  /* Crop column is a square bounded by viewport height (so it never overflows),
+     capped at 60vw for very wide screens; settings column is fixed. Content
+     groups on the left instead of stretching across the whole widescreen. */
+  grid-template-columns: min(60vw, calc(100vh - 14rem)) 320px;
+  justify-content: start;
   gap: 1.5rem;
 }
 @media (max-width: 900px) {
@@ -212,6 +217,7 @@ main {
 }
 .crop-area {
   position: relative;
+  /* Fills the (already viewport-bounded) crop column and stays square. */
   width: 100%;
   aspect-ratio: 1;
   background: #000;
@@ -258,10 +264,13 @@ main {
   margin: 0 auto;
 }
 .badge {
-  display: inline-block;
+  display: block;
   margin-top: 0.5rem;
   font-size: 0.7rem;
   color: var(--accent-2);
+}
+.badge.depth {
+  color: #f5a623;
 }
 
 /* --- controls --- */
@@ -433,6 +442,13 @@ button:disabled {
   font-size: 0.75rem;
   color: var(--muted);
   margin: 0 0 0.6rem;
+}
+.field-hint {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--muted);
+  margin-top: 0.25rem;
+  line-height: 1.3;
 }
 .modal .control input[type="text"],
 .modal .control input[type="password"] {

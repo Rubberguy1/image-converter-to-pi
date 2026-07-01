@@ -32,6 +32,9 @@ EDITABLE: dict[str, bool] = {
     "matrix_panel_type": False,
     "matrix_gpio_slowdown": False,
     "matrix_hardware_mapping": False,
+    "matrix_pwm_bits": False,    # colour depth; preview simulates it live
+    "matrix_pwm_lsb_nanoseconds": False,   # lower = higher refresh (anti-flicker)
+    "matrix_limit_refresh_rate_hz": False,  # 0 = unlimited
     "matrix_brightness": False,  # applies live
     # Music provider credentials.
     "plex_base_url": False,
@@ -57,6 +60,9 @@ RESTART_FIELDS = {
     "matrix_panel_type",
     "matrix_gpio_slowdown",
     "matrix_hardware_mapping",
+    "matrix_pwm_bits",
+    "matrix_pwm_lsb_nanoseconds",
+    "matrix_limit_refresh_rate_hz",
 }
 
 

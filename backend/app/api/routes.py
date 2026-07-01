@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from .. import power, settings_store
 from ..config import settings
 from ..display import Player
-from ..imaging import render_to_frames
+from ..imaging import Frame, render_to_frames, simulate_bit_depth
 from ..library import LibraryStore, MediaItem
 from ..library.store import RenderSettings
 from ..music import MusicPoller
@@ -69,6 +69,9 @@ class SettingsUpdate(BaseModel):
     matrix_gpio_slowdown: int | None = Field(None, ge=0, le=6)
     matrix_hardware_mapping: str | None = None
     matrix_brightness: int | None = Field(None, ge=0, le=100)
+    matrix_pwm_bits: int | None = Field(None, ge=1, le=11)
+    matrix_pwm_lsb_nanoseconds: int | None = Field(None, ge=50, le=500)
+    matrix_limit_refresh_rate_hz: int | None = Field(None, ge=0, le=1000)
     # Music provider credentials / connection details. Blank secret = unchanged.
     plex_base_url: str | None = None
     plex_token: str | None = None
@@ -127,6 +130,15 @@ def _require(req: Request, media_id: str) -> MediaItem:
     if not item:
         raise HTTPException(404, "media not found")
     return item
+
+
+def _simulate_panel(frames: list[Frame]) -> list[Frame]:
+    """Apply the configured PWM colour-depth simulation so previews show what the
+    panel will actually look like (only changes anything below 8 bits)."""
+    bits = settings.matrix_pwm_bits
+    if bits >= 11:
+        return frames
+    return [Frame(simulate_bit_depth(f.image, bits), f.duration_ms) for f in frames]
 
 
 def _frames_response(frames) -> Response:
@@ -193,7 +205,7 @@ async def media_preview(req: Request, media_id: str, body: SettingsIn):
     item = _require(req, media_id)
     opts = body.to_render_settings().to_options(*settings.content_size)
     frames = render_to_frames(item.original_path, opts)
-    return _frames_response(frames)
+    return _frames_response(_simulate_panel(frames))
 
 
 @router.put("/media/{media_id}/settings")
@@ -253,7 +265,7 @@ async def display_current(req: Request):
     frames = _player(req).current_frames()
     if not frames:
         return Response(status_code=204)
-    resp = _frames_response(frames)
+    resp = _frames_response(_simulate_panel(frames))
     resp.headers["Cache-Control"] = "no-store"
     return resp
 
@@ -366,6 +378,7 @@ async def status(req: Request):
             "panel_rows": settings.matrix_panel_rows,
             "total_panels": settings.total_panels,
             "orientation": settings.matrix_orientation,
+            "pwm_bits": settings.matrix_pwm_bits,
         },
         "power": power.estimate(settings.total_panels),
         "now_showing": {
