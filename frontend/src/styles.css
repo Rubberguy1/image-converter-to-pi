@@ -362,6 +362,193 @@ button:disabled {
   color: var(--muted);
 }
 
+/* --- gear button + settings modal --- */
+.gear {
+  background: transparent;
+  border: none;
+  font-size: 1.3rem;
+  padding: 0.2rem 0.4rem;
+  cursor: pointer;
+  color: var(--muted);
+}
+.gear:hover {
+  color: var(--text);
+  border: none;
+}
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 4vh 1rem;
+  overflow-y: auto;
+  z-index: 100;
+}
+.modal {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 460px;
+  padding: 1.2rem 1.4rem 1.4rem;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.modal-head h2 {
+  margin: 0;
+}
+.modal-x {
+  background: transparent;
+  border: none;
+  font-size: 1.4rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+.modal-sub {
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin: 0.3rem 0 1rem;
+}
+.modal-sub code {
+  background: var(--panel-2);
+  padding: 0 4px;
+  border-radius: 4px;
+}
+.settings-section {
+  border-top: 1px solid var(--border);
+  padding-top: 0.8rem;
+  margin-bottom: 0.8rem;
+}
+.settings-section h3 {
+  margin: 0 0 0.2rem;
+  font-size: 0.95rem;
+}
+.settings-hint {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin: 0 0 0.6rem;
+}
+.modal .control input[type="text"],
+.modal .control input[type="password"] {
+  width: 100%;
+  padding: 0.45rem;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.modal-actions {
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+}
+.modal .control input[type="number"] {
+  width: 100%;
+  padding: 0.45rem;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+/* tabs */
+.tabs {
+  display: flex;
+  gap: 0.3rem;
+  margin: 0.8rem 0 0.4rem;
+  border-bottom: 1px solid var(--border);
+}
+.tab {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  color: var(--muted);
+  padding: 0.4rem 0.7rem;
+}
+.tab.active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+.tab:hover {
+  color: var(--text);
+  border-bottom-color: var(--border);
+}
+.tab-body {
+  max-height: 62vh;
+  overflow-y: auto;
+}
+.res-badge {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.5rem 0.7rem;
+  margin: 0.6rem 0;
+  font-size: 0.9rem;
+  text-align: center;
+}
+.res-badge strong {
+  color: var(--accent);
+}
+.restart-note {
+  background: rgba(245, 166, 35, 0.12);
+  border: 1px solid #f5a623;
+  color: #f5cf8a;
+  border-radius: 8px;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.8rem;
+  margin-top: 0.8rem;
+}
+.restart-note code {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 0 4px;
+  border-radius: 4px;
+}
+.linklike {
+  background: none;
+  border: none;
+  color: var(--accent);
+  padding: 0;
+  cursor: pointer;
+  font-size: inherit;
+}
+.linklike:hover {
+  border: none;
+  text-decoration: underline;
+}
+.muted {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.muted.small {
+  font-size: 0.75rem;
+  word-break: break-all;
+}
+
+/* power / PSU widget */
+.power-widget {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.1;
+  font-size: 0.72rem;
+  color: var(--muted);
+  cursor: default;
+  white-space: nowrap;
+}
+.pw-watts {
+  color: #f5a623;
+  font-weight: 600;
+}
+.pw-psu {
+  font-size: 0.66rem;
+}
+
 /* --- toast --- */
 .toast {
   position: fixed;

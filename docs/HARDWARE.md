@@ -103,8 +103,8 @@ across **parallel chains** rather than one long chain.
 
 For multiple supplies: **common all grounds**, keep each supply's 5V to its own
 zone. Pi 4 wants `MATRIX_GPIO_SLOWDOWN=3–4` and benefits from `isolcpus=3`. The app
-scales via `MATRIX_WIDTH/HEIGHT`, `MATRIX_CHAIN_LENGTH`, `matrix_parallel`, and a
-pixel-mapper for the physical layout.
+scales via the **Settings → Panel** menu (or `MATRIX_PANELS_WIDE` /
+`MATRIX_PANELS_TALL`) — total resolution is derived from the panel counts.
 
 ## Direct GPIO wiring (no HAT)
 

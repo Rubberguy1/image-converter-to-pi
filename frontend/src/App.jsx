@@ -5,6 +5,8 @@ import Editor from "./components/Editor.jsx";
 import MusicPanel from "./components/MusicPanel.jsx";
 import WledPanel from "./components/WledPanel.jsx";
 import StatusBar from "./components/StatusBar.jsx";
+import SettingsModal from "./components/SettingsModal.jsx";
+import PowerWidget from "./components/PowerWidget.jsx";
 
 export default function App() {
   const [status, setStatus] = useState(null);
@@ -12,6 +14,7 @@ export default function App() {
   const [selectedId, setSelectedId] = useState(null);
   const [toast, setToast] = useState(null);
   const [error, setError] = useState(null);
+  const [showSettings, setShowSettings] = useState(false);
 
   const showToast = useCallback((msg, isError = false) => {
     setToast({ msg, isError });
@@ -60,6 +63,14 @@ export default function App() {
           Pixel<span>Pusher</span>
         </h1>
         <StatusBar status={status} onChanged={refreshStatus} onToast={showToast} />
+        <PowerWidget power={status.power} />
+        <button
+          className="gear"
+          title="Settings"
+          onClick={() => setShowSettings(true)}
+        >
+          ⚙
+        </button>
       </header>
 
       <main>
@@ -79,6 +90,7 @@ export default function App() {
           {status.wled && (
             <WledPanel
               wled={status.wled}
+              onOpenSettings={() => setShowSettings(true)}
               onChanged={refreshStatus}
               onToast={showToast}
             />
@@ -100,6 +112,14 @@ export default function App() {
           )}
         </section>
       </main>
+
+      {showSettings && (
+        <SettingsModal
+          onClose={() => setShowSettings(false)}
+          onSaved={refreshStatus}
+          onToast={showToast}
+        />
+      )}
 
       {toast && (
         <div className={`toast ${toast.isError ? "error" : ""}`}>{toast.msg}</div>

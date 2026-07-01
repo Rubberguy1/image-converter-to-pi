@@ -59,22 +59,43 @@ supply. See [docs/HARDWARE.md](docs/HARDWARE.md) for the full parts list and wir
 
 ## Quick start (local dev — no Pi needed, uses the emulator)
 
+One-time setup of the backend virtualenv:
+
 ```bash
-# 1. Backend
 cd backend
 python -m venv .venv
 . .venv/Scripts/activate          # Windows; use source .venv/bin/activate elsewhere
 pip install -r requirements.txt
-export MATRIX_BACKEND=emulator     # Windows: set MATRIX_BACKEND=emulator
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-
-# 2. Frontend (separate terminal)
-cd frontend
-npm install
-npm run dev                        # Vite dev server, proxies the API to :8000
+cd ..
 ```
 
-The emulator opens a virtual panel in your browser (default `http://localhost:8888`).
+Then start **both** the backend (emulator mode) and the frontend with one command
+from the repo root:
+
+```bash
+npm run dev
+```
+
+That launches the API on `http://localhost:8000` and the Vite dev server, and the
+emulator renders a virtual panel in your browser (default `http://localhost:8888`).
+It auto-installs the frontend's npm deps on first run.
+
+<details>
+<summary>Prefer to run them separately?</summary>
+
+```bash
+# Backend (terminal 1)
+cd backend
+. .venv/Scripts/activate           # or source .venv/bin/activate
+export MATRIX_BACKEND=emulator      # Windows: set MATRIX_BACKEND=emulator
+uvicorn app.main:app --reload --port 8000
+
+# Frontend (terminal 2)
+cd frontend && npm install && npm run dev
+```
+
+Or run just one side: `npm run dev:backend` / `npm run dev:frontend`.
+</details>
 
 ## Deploy to a Raspberry Pi
 

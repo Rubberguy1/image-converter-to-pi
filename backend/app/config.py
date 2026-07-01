@@ -20,17 +20,20 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_prefix="", extra="ignore")
 
     # --- Panel geometry ---
-    matrix_width: int = 64
-    matrix_height: int = 64
+    # A "panel" is one physical module (usually 64x64). A wall is panels_wide ×
+    # panels_tall of them. Total resolution is derived from these.
+    matrix_panel_cols: int = 64   # per-panel width in pixels
+    matrix_panel_rows: int = 64   # per-panel height in pixels
+    matrix_panels_wide: int = 1   # panels left-to-right  (rgbmatrix chain length)
+    matrix_panels_tall: int = 1   # panels top-to-bottom  (rgbmatrix parallel chains)
+    matrix_orientation: int = 0   # display rotation: 0, 90, 180, or 270 degrees
 
     # --- Driver selection ---
     # auto: use real hardware lib if importable, else emulator.
     matrix_backend: Literal["auto", "hardware", "emulator"] = "auto"
 
     # --- rpi-rgb-led-matrix tuning (only used by the hardware backend) ---
-    # These map to RGBMatrixOptions. Defaults suit an Adafruit HAT/Bonnet + Pi 3 B.
-    matrix_chain_length: int = 1
-    matrix_parallel: int = 1
+    # These map to RGBMatrixOptions. Defaults suit an Adafruit HAT/Bonnet.
     matrix_hardware_mapping: str = "adafruit-hat"  # or "adafruit-hat-pwm" after the solder mod
     matrix_gpio_slowdown: int = 2  # Pi 3 typically needs 1-2; Pi 4 needs 3-4
     matrix_pwm_bits: int = 11
@@ -80,8 +83,32 @@ class Settings(BaseSettings):
     ] = "panel_follows_wled"
     wled_poll_seconds: float = 3.0
 
+    # --- derived geometry ---
+    @property
+    def total_panels(self) -> int:
+        return max(1, self.matrix_panels_wide) * max(1, self.matrix_panels_tall)
+
+    @property
+    def matrix_width(self) -> int:
+        """Physical panel width in pixels."""
+        return self.matrix_panel_cols * self.matrix_panels_wide
+
+    @property
+    def matrix_height(self) -> int:
+        """Physical panel height in pixels."""
+        return self.matrix_panel_rows * self.matrix_panels_tall
+
     @property
     def size(self) -> tuple[int, int]:
+        """Physical (width, height) of the panel."""
+        return (self.matrix_width, self.matrix_height)
+
+    @property
+    def content_size(self) -> tuple[int, int]:
+        """Size to render content at. For 90/270° rotation the render buffer is
+        the panel with its axes swapped; the driver rotates it to physical size."""
+        if self.matrix_orientation in (90, 270):
+            return (self.matrix_height, self.matrix_width)
         return (self.matrix_width, self.matrix_height)
 
 

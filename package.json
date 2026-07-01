@@ -1,0 +1,11 @@
+{
+  "name": "pixel-pusher",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Web controller for a HUB75 RGB LED matrix on a Raspberry Pi",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:backend": "node scripts/dev.mjs backend",
+    "dev:frontend": "node scripts/dev.mjs frontend"
+  }
+}

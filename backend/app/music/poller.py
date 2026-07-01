@@ -146,9 +146,10 @@ class MusicPoller:
             self._last_key = np.track_key  # don't retry every tick
             return
 
+        content_w, content_h = self._settings.content_size
         opts = RenderOptions(
-            target_width=self._settings.matrix_width,
-            target_height=self._settings.matrix_height,
+            target_width=content_w,
+            target_height=content_h,
             fit="cover",
         )
         try:

@@ -183,17 +183,21 @@ def render_disc_frames(source: Source, opts: RenderOptions, spin: SpinOptions) -
     """Render album art as a circular disc that rotates one full turn over
     `spin.frames` frames, so it loops seamlessly like a spinning CD/vinyl.
 
-    The disc is built at supersampled resolution and each rotated frame is
-    downscaled with antialiasing, so the circle edge and rotation stay smooth on
-    the tiny panel. Rotation is clockwise.
+    The disc is always a TRUE circle of diameter min(width, height), centred on
+    the panel with a black surround — so it stays round on non-square panels
+    (e.g. 128×64) instead of stretching into an oval. It is built at supersampled
+    resolution and downscaled with antialiasing for a smooth edge and rotation.
+    Rotation is clockwise.
     """
     tw, th = opts.target_width, opts.target_height
     ss = max(1, spin.supersample)
+    diameter = min(tw, th)          # circle fits the smaller dimension
+    d = diameter * ss               # supersampled, square
 
-    # Build the base square art at high resolution, applying crop + colour tuning.
+    # Base album art as a SQUARE at high resolution (crop + colour tuning).
     big = RenderOptions(
-        target_width=tw * ss,
-        target_height=th * ss,
+        target_width=d,
+        target_height=d,
         fit="cover",
         crop=opts.crop,
         brightness=opts.brightness,
@@ -204,19 +208,25 @@ def render_disc_frames(source: Source, opts: RenderOptions, spin: SpinOptions) -
 
     # Cut it into a disc with a transparent surround + centre hole.
     disc = base.convert("RGBA")
-    disc.putalpha(_disc_mask(disc.size, spin.hole_ratio))
+    disc.putalpha(_disc_mask((d, d), spin.hole_ratio))
 
     n = max(1, spin.frames)
     frame_ms = max(_MIN_FRAME_MS, int(spin.revolution_seconds * 1000 / n))
+
+    # Centre the circle on the full panel.
+    off_x = (tw - diameter) // 2
+    off_y = (th - diameter) // 2
 
     out: list[Frame] = []
     for i in range(n):
         angle = -360.0 * i / n  # negative => clockwise
         rotated = disc.rotate(angle, resample=Image.BICUBIC, expand=False)
-        canvas = Image.new("RGBA", rotated.size, (0, 0, 0, 255))
-        canvas.alpha_composite(rotated)
-        small = canvas.convert("RGB").resize((tw, th), Image.LANCZOS)
-        out.append(Frame(small, frame_ms))
+        square = Image.new("RGBA", (d, d), (0, 0, 0, 255))
+        square.alpha_composite(rotated)
+        square = square.convert("RGB").resize((diameter, diameter), Image.LANCZOS)
+        frame = Image.new("RGB", (tw, th), opts.background)
+        frame.paste(square, (off_x, off_y))
+        out.append(Frame(frame, frame_ms))
     return out
 
 

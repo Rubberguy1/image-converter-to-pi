@@ -8,11 +8,23 @@ Status key: 🟢 easy · 🟡 medium · 🔴 large · 💡 idea/needs design
 
 ## Display & content
 
-- 🟡 **True-circle spinning disc on non-square panels.** The disc mask currently
-  fills the whole frame, so on a non-square wall (e.g. 128×64) it becomes an oval.
-  Fix: center a circle of diameter `min(width, height)`.
+- 🔴 **Custom panel layouts / zones.** Divide the panel into rectangular zones,
+  each showing independent content — e.g. on a 64×128, the spinning album disc on
+  the top 64×64 and a clock or a second image on the bottom. Design:
+  - A *layout* = named zones, each `{x, y, w, h}` in panel pixels + a *source*
+    (library image/GIF, music album disc, clock/text, or blank).
+  - Replace the single-content player with a **compositor**: each render tick,
+    sample every zone's current frame (each source animates on its own timer) and
+    paste it at the zone's position into the full panel buffer.
+  - Zone sources reuse the existing renderers (`render_to_frames`,
+    `render_disc_frames`) targeted at the zone size — the true-circle disc fix
+    already makes the album disc drop into any zone cleanly.
+  - UI: a layout editor (drag/resize zones on a grid, assign a source to each),
+    saved as named layouts you can switch between.
+  - Good first step: a fixed "split" layout (2 zones) for the 64×128 case before
+    the full drag-and-drop editor.
 - 🟡 **Text / clock / weather widgets.** Render scrolling text, a clock, or weather
-  to the panel — either full-screen or composited with images.
+  to the panel — great as zone sources for the layout feature above.
 - 🟡 **Playlists & scheduling.** Queue multiple images/GIFs with per-item durations;
   schedule what shows by time of day (e.g. clock in the morning, art in the evening).
 - 🟡 **Transitions & effects.** Crossfade / wipe / slide between items instead of a
@@ -62,6 +74,9 @@ Status key: 🟢 easy · 🟡 medium · 🔴 large · 💡 idea/needs design
 - Image/GIF upload, crop, auto-fit, live preview
 - Animated-GIF preview and playback
 - Music album-art sync (Plex / VLC / Last.fm) with spinning-CD effect
+- True-circle spinning disc (correct on non-square panels)
+- Panel-based geometry (panels wide/tall), orientation, and power/PSU estimate
+- Settings menu (panel + credentials + WLED) with live apply
 - Live panel mirror in the music panel
 - WLED power sync (panel ↔ lights, HTTP)
 - Emulator-based development workflow

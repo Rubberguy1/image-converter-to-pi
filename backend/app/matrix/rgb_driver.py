@@ -43,10 +43,10 @@ class RGBMatrixDriver(MatrixDisplay):
         self.backend = backend
 
         options = mod.RGBMatrixOptions()
-        options.rows = settings.matrix_height
-        options.cols = settings.matrix_width
-        options.chain_length = settings.matrix_chain_length
-        options.parallel = settings.matrix_parallel
+        options.rows = settings.matrix_panel_rows       # per-panel height
+        options.cols = settings.matrix_panel_cols       # per-panel width
+        options.chain_length = settings.matrix_panels_wide
+        options.parallel = settings.matrix_panels_tall
         options.brightness = settings.matrix_brightness
 
         # Hardware-only tuning. The emulator ignores unknown attributes, but we
@@ -73,14 +73,20 @@ class RGBMatrixDriver(MatrixDisplay):
                 pass
 
         self._matrix = mod.RGBMatrix(options=options)
-        self.width = settings.matrix_width
-        self.height = settings.matrix_height
+        self.width = settings.matrix_width          # physical width
+        self.height = settings.matrix_height        # physical height
+        self._orientation = settings.matrix_orientation % 360
         self._brightness = settings.matrix_brightness
         self._lock = threading.Lock()
         # Double-buffered canvas avoids tearing on hardware.
         self._canvas = self._matrix.CreateFrameCanvas()
 
     def set_image(self, image: Image.Image) -> None:
+        # Content is rendered at content_size; rotate it to the physical panel
+        # orientation. PIL rotates counter-clockwise, so 90 here == a quarter
+        # turn; pick 90 vs 270 for the direction your panel is mounted.
+        if self._orientation:
+            image = image.rotate(self._orientation, expand=True)
         if image.mode != "RGB":
             image = image.convert("RGB")
         with self._lock:

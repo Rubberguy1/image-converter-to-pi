@@ -7,6 +7,7 @@ from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
+from .. import power, settings_store
 from ..config import settings
 from ..display import Player
 from ..imaging import render_to_frames
@@ -55,6 +56,29 @@ class WledConfigIn(BaseModel):
     enabled: bool = False
     base_url: str | None = None
     direction: str | None = None  # panel_follows_wled | wled_follows_panel | mirror
+
+
+class SettingsUpdate(BaseModel):
+    # Panel geometry / hardware.
+    matrix_panels_wide: int | None = Field(None, ge=1, le=16)
+    matrix_panels_tall: int | None = Field(None, ge=1, le=16)
+    matrix_panel_cols: int | None = Field(None, ge=8, le=128)
+    matrix_panel_rows: int | None = Field(None, ge=8, le=128)
+    matrix_orientation: int | None = None  # 0/90/180/270
+    matrix_panel_type: str | None = None
+    matrix_gpio_slowdown: int | None = Field(None, ge=0, le=6)
+    matrix_hardware_mapping: str | None = None
+    matrix_brightness: int | None = Field(None, ge=0, le=100)
+    # Music provider credentials / connection details. Blank secret = unchanged.
+    plex_base_url: str | None = None
+    plex_token: str | None = None
+    vlc_base_url: str | None = None
+    vlc_password: str | None = None
+    lastfm_api_key: str | None = None
+    lastfm_user: str | None = None
+    # WLED connection.
+    wled_base_url: str | None = None
+    wled_sync_direction: str | None = None
 
 
 class BrightnessIn(BaseModel):
@@ -167,7 +191,7 @@ async def media_preview(req: Request, media_id: str, body: SettingsIn):
     how it will look before pushing it. Animated sources return an animated GIF
     (so the preview plays); static sources return a PNG."""
     item = _require(req, media_id)
-    opts = body.to_render_settings().to_options(*settings.size)
+    opts = body.to_render_settings().to_options(*settings.content_size)
     frames = render_to_frames(item.original_path, opts)
     return _frames_response(frames)
 
@@ -205,7 +229,7 @@ async def display_media(req: Request, media_id: str, body: SettingsIn | None = N
     if poller.status()["enabled"]:
         poller.configure("none", False)
         music_disabled = True
-    opts = item.settings.to_options(*settings.size)
+    opts = item.settings.to_options(*settings.content_size)
     frames = render_to_frames(item.original_path, opts)
     _player(req).play(frames, item.name, media_id=item.id)
     return {
@@ -282,6 +306,49 @@ async def music_configure(req: Request, body: MusicConfigIn):
     return _poller(req).status()
 
 
+# --- user-editable settings (credentials) ---
+@router.get("/settings")
+async def get_settings(req: Request):
+    return settings_store.public_view()
+
+
+_MUSIC_KEYS = {"plex_base_url", "plex_token", "vlc_base_url", "vlc_password",
+               "lastfm_api_key", "lastfm_user"}
+_WLED_KEYS = {"wled_base_url", "wled_sync_direction"}
+
+
+@router.put("/settings")
+async def update_settings(req: Request, body: SettingsUpdate):
+    payload = body.model_dump(exclude_unset=True)
+    view = settings_store.update(payload)
+    keys = set(payload)
+
+    # Apply what we can without a restart.
+    if "matrix_brightness" in keys:
+        _player(req).set_brightness(settings.matrix_brightness)
+
+    if keys & _MUSIC_KEYS:
+        poller = _poller(req)
+        st = poller.status()
+        if st["enabled"]:
+            try:
+                poller.configure(st["provider"], True)
+            except ValueError as exc:
+                raise HTTPException(400, str(exc))
+
+    if keys & _WLED_KEYS:
+        wled = _wled(req)
+        st = wled.status()
+        try:
+            wled.configure(st["enabled"], settings.wled_base_url,
+                           settings.wled_sync_direction)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+
+    view["restart_required"] = bool(keys & settings_store.RESTART_FIELDS)
+    return view
+
+
 # --- overall status ---
 @router.get("/status")
 async def status(req: Request):
@@ -293,7 +360,14 @@ async def status(req: Request):
             "width": matrix.width,
             "height": matrix.height,
             "brightness": matrix.get_brightness(),
+            "panels_wide": settings.matrix_panels_wide,
+            "panels_tall": settings.matrix_panels_tall,
+            "panel_cols": settings.matrix_panel_cols,
+            "panel_rows": settings.matrix_panel_rows,
+            "total_panels": settings.total_panels,
+            "orientation": settings.matrix_orientation,
         },
+        "power": power.estimate(settings.total_panels),
         "now_showing": {
             "source": showing.source,
             "label": showing.label,

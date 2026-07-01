@@ -23,13 +23,13 @@ End-state wall: 8 × 64×64 P3 panels = **256 × 128 px**, ~768 × 384 mm.
 
 ## Phase 1 — 2 panels (128×64, side by side)
 
-Wire the two panels as a single chain of 2. `.env`:
+Wire the two panels as a single chain of 2. Set these in the web UI
+(**Settings → Panel**) or in `.env` — total resolution is derived from the panel
+counts (2×64 wide, 1×64 tall = 128×64):
 
 ```ini
-MATRIX_WIDTH=128
-MATRIX_HEIGHT=64
-MATRIX_CHAIN_LENGTH=2
-MATRIX_PARALLEL=1
+MATRIX_PANELS_WIDE=2
+MATRIX_PANELS_TALL=1
 MATRIX_PANEL_TYPE=FM6126A
 # If on Pi 4 + Active-3:
 MATRIX_HARDWARE_MAPPING=regular
@@ -52,13 +52,11 @@ Active-3 port 1 ─► [P] [P] [P] [P]   (bottom row, chain of 4) = 256×64
                     stacked = 256×128
 ```
 
-`.env`:
+Set in **Settings → Panel** (or `.env`) — 4×64 wide, 2×64 tall = 256×128:
 
 ```ini
-MATRIX_WIDTH=256
-MATRIX_HEIGHT=128
-MATRIX_CHAIN_LENGTH=4
-MATRIX_PARALLEL=2
+MATRIX_PANELS_WIDE=4
+MATRIX_PANELS_TALL=2
 MATRIX_HARDWARE_MAPPING=regular
 MATRIX_GPIO_SLOWDOWN=4
 MATRIX_PANEL_TYPE=FM6126A

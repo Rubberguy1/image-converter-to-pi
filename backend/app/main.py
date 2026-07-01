@@ -22,6 +22,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.responses import FileResponse
 
+from . import settings_store
 from .api import router as api_router
 from .config import FRONTEND_DIST, settings
 from .display import Player
@@ -39,6 +40,8 @@ log = logging.getLogger("pixelpusher")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Apply any UI-saved credentials over the env defaults before pollers start.
+    settings_store.load_and_apply()
     matrix = create_matrix()
     player = Player(matrix)
     player.start()

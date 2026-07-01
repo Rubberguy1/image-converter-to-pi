@@ -70,6 +70,15 @@ export const api = {
       body: JSON.stringify(payload),
     }).then(jsonOrThrow),
 
+  getSettings: () => fetch("/api/settings").then(jsonOrThrow),
+
+  updateSettings: (payload) =>
+    fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }).then(jsonOrThrow),
+
   musicStatus: () => fetch("/api/music").then(jsonOrThrow),
 
   configureMusic: (provider, enabled, spin = null) =>
