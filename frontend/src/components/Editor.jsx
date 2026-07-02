@@ -132,7 +132,8 @@ export default function Editor({ item, onPushed, onToast, pwmBits }) {
                 crop={crop}
                 zoom={zoom}
                 aspect={1}
-                restrictPosition={false}
+                minZoom={1}
+                restrictPosition={true}
                 onCropChange={setCrop}
                 onZoomChange={setZoom}
                 onCropComplete={onCropComplete}
