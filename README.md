@@ -34,6 +34,8 @@ on/off state of your WLED lights.
   **VLC**, and **Last.fm** (universal — works with YouTube Music and anything that
   scrobbles).
 - **WLED power sync** — blank/wake the panel with your WLED lights (or vice versa).
+- **Screen mirror** — stream a cropped, downscaled view of your PC's screen to the
+  panel in real time (browser screen capture → WebSocket; needs HTTPS/localhost).
 - **In-app Settings menu** — panel layout (multi-panel, orientation), color depth &
   flicker tuning, brightness, and all provider credentials — no `.env` editing needed.
 - **Wattage / PSU estimate** in the header, based on your configured panel count.

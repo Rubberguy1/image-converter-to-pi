@@ -4,6 +4,7 @@ import Gallery from "./components/Gallery.jsx";
 import Editor from "./components/Editor.jsx";
 import MusicPanel from "./components/MusicPanel.jsx";
 import WledPanel from "./components/WledPanel.jsx";
+import ScreenMirror from "./components/ScreenMirror.jsx";
 import StatusBar from "./components/StatusBar.jsx";
 import SettingsModal from "./components/SettingsModal.jsx";
 import PowerWidget from "./components/PowerWidget.jsx";
@@ -112,6 +113,12 @@ export default function App() {
               onToast={showToast}
             />
           )}
+          <ScreenMirror
+            cols={contentDims(status.matrix).cols}
+            rows={contentDims(status.matrix).rows}
+            onChanged={refreshStatus}
+            onToast={showToast}
+          />
         </aside>
 
         <Resizer onDrag={(x) => setLeftWidth(clamp(x, 220, 520))} />

@@ -437,6 +437,26 @@ button:disabled {
   border-radius: 6px;
 }
 
+/* --- screen mirror --- */
+.mirror-panel {
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+}
+.mirror-panel h3 {
+  margin: 0 0 0.7rem;
+  font-size: 1rem;
+}
+.mirror-preview {
+  width: 100%;
+  max-width: 220px;
+  aspect-ratio: var(--panel-aspect, 1);
+  image-rendering: pixelated;
+  border-radius: 6px;
+  background: #000;
+  display: block;
+  margin: 0 auto 0.6rem;
+}
+
 .placeholder-pane {
   height: 100%;
   display: flex;

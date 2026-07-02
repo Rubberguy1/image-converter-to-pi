@@ -30,7 +30,9 @@ export default function StatusBar({ status, onChanged, onToast }) {
         <span className="now">
           {showing.source === "idle"
             ? "Idle"
-            : `${showing.source === "music" ? "🎵 " : ""}${showing.label}`}
+            : `${showing.source === "music" ? "🎵 " : ""}${
+                showing.source === "live" ? "🖥️ " : ""
+              }${showing.label}`}
         </span>
       </div>
 

@@ -93,6 +93,7 @@ Status key: 🟢 easy · 🟡 medium · 🔴 large · 💡 idea/needs design
 - Settings menu (panel layout + color/flicker tuning + credentials + WLED), live apply
 - Live panel mirror in the music panel
 - WLED power sync (panel ↔ lights, HTTP)
+- Screen mirror (browser screen capture → WebSocket → panel, live)
 - Emulator-based dev workflow + `npm run dev` orchestrator + `update.sh`
 - FM6126A / panel-type + GPIO / PWM-LSB / refresh tuning (incl. flicker recipe)
 - systemd service + one-shot Pi installer

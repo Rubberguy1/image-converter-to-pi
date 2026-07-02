@@ -13,7 +13,10 @@ export default defineConfig({
   server: {
     host: true,
     proxy: {
-      "/api": apiTarget,
+      // ws: true proxies the screen-mirror WebSocket (/api/stream/ws) too, so
+      // running the dev server on your PC (localhost = a secure context, which
+      // screen capture requires) can stream to a real Pi backend.
+      "/api": { target: apiTarget, ws: true },
       "/healthz": apiTarget,
     },
   },

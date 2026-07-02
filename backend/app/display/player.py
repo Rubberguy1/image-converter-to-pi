@@ -16,6 +16,8 @@ import logging
 import threading
 from dataclasses import dataclass
 
+from PIL import Image
+
 from ..imaging import Frame
 from ..matrix import MatrixDisplay
 
@@ -42,6 +44,9 @@ class Player:
         self._manual_meta = ("idle", "Nothing playing", None)
         self._music: list[Frame] | None = None
         self._music_meta = ("music", "", None)
+        # Live screen-mirror frame (highest content priority below sleep). Each
+        # streamed frame replaces the previous one in place.
+        self._live: Image.Image | None = None
         # When music mode is on, the panel is dedicated to album art: the manual
         # image is suppressed entirely (blank between tracks), not used as a
         # fallback. Turning it off returns control to the manual selection.
@@ -154,6 +159,24 @@ class Player:
             frames, _ = self._effective_locked()
             return len(frames) > 0
 
+    def set_live(self, image: Image.Image) -> None:
+        """Show a live streamed frame (screen mirror). Replaces the previous
+        frame in place; starting a stream takes over the panel."""
+        with self._lock:
+            starting = self._live is None
+            self._live = image
+            if starting:
+                self._gen += 1
+        self._wake.set()
+
+    def clear_live(self) -> None:
+        with self._lock:
+            if self._live is None:
+                return
+            self._live = None
+            self._gen += 1
+        self._wake.set()
+
     def set_brightness(self, value: int) -> None:
         self._matrix.set_brightness(value)
 
@@ -180,6 +203,8 @@ class Player:
     def _effective_locked(self):
         if self._asleep:
             return [], ("off", "Panel asleep", None)
+        if self._live is not None:
+            return [Frame(self._live)], ("live", "Screen mirror", None)
         if self._music is not None:
             return self._music, self._music_meta
         if self._music_mode:

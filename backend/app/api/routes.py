@@ -2,10 +2,22 @@
 from __future__ import annotations
 
 import io
+import logging
 
-from fastapi import APIRouter, File, HTTPException, Request, UploadFile
+from fastapi import (
+    APIRouter,
+    File,
+    HTTPException,
+    Request,
+    UploadFile,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.responses import Response
+from PIL import Image
 from pydantic import BaseModel, Field
+
+log = logging.getLogger(__name__)
 
 from .. import power, settings_store
 from ..config import settings
@@ -288,6 +300,32 @@ async def display_current(req: Request):
 async def set_brightness(req: Request, body: BrightnessIn):
     _player(req).set_brightness(body.value)
     return {"ok": True, "value": body.value}
+
+
+@router.websocket("/stream/ws")
+async def stream_ws(ws: WebSocket):
+    """Live screen mirror: the browser captures + crops + downscales the screen
+    and streams panel-sized PNG frames here; each is pushed to the matrix. The
+    Pi only ever receives the tiny cropped frames, never the whole screen."""
+    await ws.accept()
+    player = ws.app.state.player
+    try:
+        while True:
+            data = await ws.receive_bytes()
+            try:
+                img = Image.open(io.BytesIO(data)).convert("RGB")
+            except Exception:
+                continue  # skip malformed frames
+            target = settings.content_size
+            if img.size != target:
+                img = img.resize(target, Image.LANCZOS)
+            player.set_live(img)
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        log.exception("screen stream error")
+    finally:
+        player.clear_live()
 
 
 @router.post("/display/sleep")

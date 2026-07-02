@@ -239,3 +239,33 @@ Panel** in the web UI (a restart applies the hardware ones).
 - **VLC:** enable VLC's Web interface and set `VLC_BASE_URL` + `VLC_PASSWORD`.
 
 Then pick the source and hit **Start syncing** in the web UI.
+
+## Screen mirror & secure context (HTTPS)
+
+The **Screen mirror** feature captures your PC's screen in the browser and streams
+panel-sized frames to the Pi. Browsers only allow screen capture in a **secure
+context** (HTTPS or localhost), so it's **blocked over plain
+`http://raspberrypi.local:8000`**. Two ways to use it:
+
+**Easiest — run the web UI on your PC** (localhost is a secure context), pointed at
+the Pi. The dev server proxies the stream WebSocket to the Pi:
+
+```bash
+cd frontend
+# macOS/Linux:
+VITE_API_TARGET=http://raspberrypi.local:8000 npm run dev
+# Windows PowerShell:
+$env:VITE_API_TARGET="http://raspberrypi.local:8000"; npm run dev
+```
+Open the Vite URL, click **Share screen** — frames stream to the real panel.
+
+**Production — serve the app over HTTPS on the Pi** with a self-signed cert:
+
+```bash
+cd ~/pixel-pusher/backend
+openssl req -x509 -newkey rsa:2048 -nodes -days 3650 \
+  -keyout key.pem -out cert.pem -subj "/CN=raspberrypi.local"
+```
+Add to the systemd unit's `ExecStart`: `--ssl-keyfile key.pem --ssl-certfile cert.pem`,
+restart, then open **https://raspberrypi.local:8000** and accept the self-signed
+warning once. Everything (including screen mirror) then works over HTTPS.
