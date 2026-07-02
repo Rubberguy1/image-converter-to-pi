@@ -29,6 +29,14 @@ class CropIn(BaseModel):
     h: float = Field(1.0, gt=0, le=1)
 
 
+class WindowIn(BaseModel):
+    # Pixel-lock window in source pixels; x/y may be negative or overflow.
+    x: int = Field(..., ge=-8192, le=8192)
+    y: int = Field(..., ge=-8192, le=8192)
+    w: int = Field(..., gt=0, le=8192)
+    h: int = Field(..., gt=0, le=8192)
+
+
 class SettingsIn(BaseModel):
     fit: str = "cover"
     crop: CropIn | None = None
@@ -36,6 +44,7 @@ class SettingsIn(BaseModel):
     contrast: float = Field(1.0, ge=0.1, le=3.0)
     saturation: float = Field(1.0, ge=0.0, le=3.0)
     nearest: bool = False
+    window: WindowIn | None = None
 
     def to_render_settings(self) -> RenderSettings:
         return RenderSettings(
@@ -45,6 +54,9 @@ class SettingsIn(BaseModel):
             contrast=self.contrast,
             saturation=self.saturation,
             nearest=self.nearest,
+            window=[self.window.x, self.window.y, self.window.w, self.window.h]
+            if self.window
+            else None,
         )
 
 

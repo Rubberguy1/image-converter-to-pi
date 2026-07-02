@@ -61,6 +61,11 @@ class RenderOptions:
     # Nearest-neighbour resampling instead of Lanczos — keeps pixel art crisp
     # (no smoothing/blur) at the cost of smoothness for photos.
     nearest: bool = False
+    # Pixel-lock: a panel-sized window into the source, in SOURCE pixels
+    # (x, y, w, h). x/y may be negative or extend beyond the source so the source
+    # can be positioned anywhere on the panel (1:1, no scaling). Overrides
+    # crop/fit when set.
+    window: tuple[int, int, int, int] | None = None
     max_frames: int = 256  # safety cap for huge GIFs
 
     @property
@@ -131,9 +136,38 @@ def _tune_colour(img: Image.Image, opts: RenderOptions) -> Image.Image:
     return img
 
 
+def _window_blit(img: Image.Image, opts: RenderOptions) -> Image.Image:
+    """Place a panel-sized window of the source onto a black panel at 1:1, at the
+    exact position given by the window (which may sit partly off the source, so
+    the source can be positioned anywhere on the panel)."""
+    wx, wy, ww, wh = opts.window
+    tw, th = opts.target_width, opts.target_height
+    canvas = Image.new("RGB", (tw, th), opts.background)
+    sx0, sy0 = max(0, wx), max(0, wy)
+    sx1, sy1 = min(img.width, wx + ww), min(img.height, wy + wh)
+    if sx1 > sx0 and sy1 > sy0:
+        region = img.crop((sx0, sy0, sx1, sy1))
+        # Panel destination = where the source region falls within the window.
+        # (ww == tw for 1:1; scale if an integer zoom window is ever used.)
+        if ww == tw and wh == th:
+            canvas.paste(region, (sx0 - wx, sy0 - wy))
+        else:
+            rw = max(1, round(region.width * tw / ww))
+            rh = max(1, round(region.height * th / wh))
+            canvas.paste(
+                region.resize((rw, rh), Image.NEAREST),
+                (round((sx0 - wx) * tw / ww), round((sy0 - wy) * th / wh)),
+            )
+    return canvas
+
+
 def _process_single(img: Image.Image, opts: RenderOptions) -> Image.Image:
-    img = _apply_crop(img.convert("RGB"), opts.crop)
-    img = _fit(img, opts)
+    img = img.convert("RGB")
+    if opts.window is not None:
+        img = _window_blit(img, opts)
+    else:
+        img = _apply_crop(img, opts.crop)
+        img = _fit(img, opts)
     img = _tune_colour(img, opts)
     if img.mode != "RGB":
         img = img.convert("RGB")

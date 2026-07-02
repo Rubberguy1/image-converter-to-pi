@@ -33,6 +33,7 @@ class RenderSettings:
     contrast: float = 1.0
     saturation: float = 1.0
     nearest: bool = False  # nearest-neighbour resampling (crisp pixels)
+    window: list | None = None  # pixel-lock 1:1 window [x, y, w, h] in source px
 
     def to_options(self, width: int, height: int) -> RenderOptions:
         crop = CropRect(**self.crop) if self.crop else None
@@ -45,6 +46,7 @@ class RenderSettings:
             contrast=self.contrast,
             saturation=self.saturation,
             nearest=self.nearest,
+            window=tuple(self.window) if self.window else None,
         )
 
 

@@ -27,22 +27,12 @@ export default function PixelCropper({ imageUrl, srcW, srcH, cols, rows, onChang
     setPan((p) => ({ x: clampX(p.x), y: clampY(p.y) }));
   }, [clampX, clampY]);
 
-  // Report the normalised crop whenever the pan changes. It's the intersection
-  // of the panel window [pan, pan+size] with the source, clamped to [0,1] — so
-  // sources smaller than the panel yield a valid whole-source crop (no negative
-  // coords), which fit=center then places 1:1 centred.
+  // Report the panel window in source pixels. x/y may be negative or overflow
+  // the source, so the source can be positioned anywhere on the panel (the
+  // backend blits the overlapping region 1:1 at the matching panel offset).
   useEffect(() => {
-    const x0 = Math.max(0, pan.x);
-    const y0 = Math.max(0, pan.y);
-    const x1 = Math.min(srcW, pan.x + cols);
-    const y1 = Math.min(srcH, pan.y + rows);
-    onChange({
-      x: x0 / srcW,
-      y: y0 / srcH,
-      w: (x1 - x0) / srcW,
-      h: (y1 - y0) / srcH,
-    });
-  }, [pan.x, pan.y, srcW, srcH, cols, rows, onChange]);
+    onChange({ x: pan.x, y: pan.y, w: cols, h: rows });
+  }, [pan.x, pan.y, cols, rows, onChange]);
 
   function onPointerDown(e) {
     e.preventDefault();

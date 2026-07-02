@@ -26,7 +26,7 @@ export default function Editor({ item, onPushed, onToast, pwmBits, panelAspect, 
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [areaPixels, setAreaPixels] = useState(null);
-  const [lockedCrop, setLockedCrop] = useState(null);
+  const [lockedWindow, setLockedWindow] = useState(null);
   const [useCrop, setUseCrop] = useState(Boolean(item.settings.crop));
   const [pixelGrid, setPixelGrid] = useState(false);
   const [nearest, setNearest] = useState(Boolean(item.settings.nearest));
@@ -65,24 +65,19 @@ export default function Editor({ item, onPushed, onToast, pwmBits, panelAspect, 
 
   // Pixel-grid mode = crop locked to the panel's exact size (1:1); otherwise the
   // freeform react-easy-crop rectangle.
-  const cropRegion = !useCrop
-    ? null
-    : pixelGrid
-    ? lockedCrop
-    : cropFromPixels(areaPixels, item.width, item.height);
+  // Pixel-lock sends a 1:1 window (positioned anywhere on the panel); otherwise
+  // the freeform react-easy-crop rectangle.
   const settings = {
-    // Pixel-lock forces native 1:1 placement + nearest so the cropped source
-    // pixels map exactly to panel pixels (never upscaled) — correct for sources
-    // smaller than the panel too (centred with a black surround).
-    fit: pixelGrid ? "center" : fit,
-    crop: cropRegion,
+    fit,
+    crop: !useCrop || pixelGrid ? null : cropFromPixels(areaPixels, item.width, item.height),
+    window: useCrop && pixelGrid ? lockedWindow : null,
     brightness: color.brightness,
     contrast: color.contrast,
     saturation: color.saturation,
     nearest: pixelGrid ? true : nearest,
   };
 
-  const onLockedChange = useCallback((c) => setLockedCrop(c), []);
+  const onLockedChange = useCallback((w) => setLockedWindow(w), []);
 
   // Debounced live preview whenever settings change.
   useEffect(() => {
@@ -100,7 +95,7 @@ export default function Editor({ item, onPushed, onToast, pwmBits, panelAspect, 
     }, 250);
     return () => clearTimeout(previewTimer.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [item.id, useCrop, areaPixels, lockedCrop, pixelGrid, nearest, fit, color.brightness, color.contrast, color.saturation, pwmBits]);
+  }, [item.id, useCrop, areaPixels, lockedWindow, pixelGrid, nearest, fit, color.brightness, color.contrast, color.saturation, pwmBits]);
 
   // react-easy-crop gives cropped area in percent and in source pixels; we use
   // pixels so we can snap to whole source pixels.
