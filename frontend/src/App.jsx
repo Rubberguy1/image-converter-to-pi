@@ -8,6 +8,15 @@ import StatusBar from "./components/StatusBar.jsx";
 import SettingsModal from "./components/SettingsModal.jsx";
 import PowerWidget from "./components/PowerWidget.jsx";
 
+// Aspect ratio of the panel for the crop tool. For 90/270 orientation the content
+// is rendered with axes swapped, so the crop matches the as-mounted shape.
+function panelAspect(m) {
+  if (!m || !m.width || !m.height) return 1;
+  return m.orientation === 90 || m.orientation === 270
+    ? m.height / m.width
+    : m.width / m.height;
+}
+
 export default function App() {
   const [status, setStatus] = useState(null);
   const [items, setItems] = useState([]);
@@ -103,6 +112,7 @@ export default function App() {
               key={selected.id}
               item={selected}
               pwmBits={status.matrix.pwm_bits}
+              panelAspect={panelAspect(status.matrix)}
               onPushed={refreshStatus}
               onToast={showToast}
             />

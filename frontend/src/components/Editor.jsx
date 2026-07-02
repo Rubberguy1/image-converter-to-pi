@@ -29,7 +29,10 @@ function buildSettings(useCrop, area, fit, color) {
   };
 }
 
-export default function Editor({ item, onPushed, onToast, pwmBits }) {
+export default function Editor({ item, onPushed, onToast, pwmBits, panelAspect }) {
+  // Crop to the panel's shape so the selection maps 1:1 to the display.
+  // Defaults to square (single 64x64) until a multi-panel layout is configured.
+  const aspect = panelAspect && panelAspect > 0 ? panelAspect : 1;
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [areaPercent, setAreaPercent] = useState(null);
@@ -131,7 +134,7 @@ export default function Editor({ item, onPushed, onToast, pwmBits }) {
                 image={api.originalUrl(item.id)}
                 crop={crop}
                 zoom={zoom}
-                aspect={1}
+                aspect={aspect}
                 minZoom={1}
                 restrictPosition={true}
                 onCropChange={setCrop}
