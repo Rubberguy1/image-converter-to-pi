@@ -272,6 +272,20 @@ body.resizing .resizer {
   max-height: 100%;
   image-rendering: pixelated;
 }
+/* pixel-lock cropper: fixed panel-size window, pan-only */
+.pixel-lock {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+body.grabbing,
+body.grabbing .pixel-lock {
+  cursor: grabbing;
+  user-select: none;
+}
+
 /* pixel-resolution grid overlay for 1:1 cropping (cell size set inline) */
 .pixel-grid {
   position: absolute;

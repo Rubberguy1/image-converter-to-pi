@@ -2,36 +2,18 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import Cropper from "react-easy-crop";
 import { api } from "../api.js";
 import Resizer, { clamp } from "./Resizer.jsx";
+import PixelCropper from "./PixelCropper.jsx";
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 
-// Build the settings payload sent to the backend. Works from croppedAreaPixels
-// (source-pixel coordinates); when `snap` is on those are rounded to whole
-// source pixels so the crop maps to the panel with no fractional sampling.
-function buildSettings({ useCrop, pixels, srcW, srcH, snap, fit, color, nearest }) {
-  let crop = null;
-  if (useCrop && pixels && srcW && srcH) {
-    let { x, y, width, height } = pixels;
-    if (snap) {
-      x = Math.round(x);
-      y = Math.round(y);
-      width = Math.round(width);
-      height = Math.round(height);
-    }
-    crop = {
-      x: clamp01(x / srcW),
-      y: clamp01(y / srcH),
-      w: clamp01(width / srcW),
-      h: clamp01(height / srcH),
-    };
-  }
+// Normalised crop from react-easy-crop's source-pixel rectangle (freeform mode).
+function cropFromPixels(pixels, srcW, srcH) {
+  if (!pixels || !srcW || !srcH) return null;
   return {
-    fit,
-    crop,
-    brightness: color.brightness,
-    contrast: color.contrast,
-    saturation: color.saturation,
-    nearest,
+    x: clamp01(pixels.x / srcW),
+    y: clamp01(pixels.y / srcH),
+    w: clamp01(pixels.width / srcW),
+    h: clamp01(pixels.height / srcH),
   };
 }
 
@@ -44,6 +26,7 @@ export default function Editor({ item, onPushed, onToast, pwmBits, panelAspect, 
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [areaPixels, setAreaPixels] = useState(null);
+  const [lockedCrop, setLockedCrop] = useState(null);
   const [useCrop, setUseCrop] = useState(Boolean(item.settings.crop));
   const [pixelGrid, setPixelGrid] = useState(false);
   const [nearest, setNearest] = useState(Boolean(item.settings.nearest));
@@ -80,16 +63,23 @@ export default function Editor({ item, onPushed, onToast, pwmBits, panelAspect, 
     });
   }, [item.id]);
 
-  const settings = buildSettings({
-    useCrop,
-    pixels: areaPixels,
-    srcW: item.width,
-    srcH: item.height,
-    snap: pixelGrid,
+  // Pixel-grid mode = crop locked to the panel's exact size (1:1); otherwise the
+  // freeform react-easy-crop rectangle.
+  const cropRegion = !useCrop
+    ? null
+    : pixelGrid
+    ? lockedCrop
+    : cropFromPixels(areaPixels, item.width, item.height);
+  const settings = {
     fit,
-    color,
+    crop: cropRegion,
+    brightness: color.brightness,
+    contrast: color.contrast,
+    saturation: color.saturation,
     nearest,
-  });
+  };
+
+  const onLockedChange = useCallback((c) => setLockedCrop(c), []);
 
   // Debounced live preview whenever settings change.
   useEffect(() => {
@@ -107,7 +97,7 @@ export default function Editor({ item, onPushed, onToast, pwmBits, panelAspect, 
     }, 250);
     return () => clearTimeout(previewTimer.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [item.id, useCrop, areaPixels, pixelGrid, nearest, fit, color.brightness, color.contrast, color.saturation, pwmBits]);
+  }, [item.id, useCrop, areaPixels, lockedCrop, pixelGrid, nearest, fit, color.brightness, color.contrast, color.saturation, pwmBits]);
 
   // react-easy-crop gives cropped area in percent and in source pixels; we use
   // pixels so we can snap to whole source pixels.
@@ -160,7 +150,7 @@ export default function Editor({ item, onPushed, onToast, pwmBits, panelAspect, 
                 checked={pixelGrid}
                 onChange={(e) => setPixelGrid(e.target.checked)}
               />
-              Pixel grid ({cols}×{rows})
+              Lock to panel pixels ({cols}×{rows}, 1:1)
             </label>
           )}
         </div>
@@ -169,40 +159,39 @@ export default function Editor({ item, onPushed, onToast, pwmBits, panelAspect, 
           className={`crop-area ${useCrop ? "" : "static"}`}
           style={{ "--panel-aspect": aspect }}
         >
-          {useCrop ? (
-            <>
-              <Cropper
-                image={api.originalUrl(item.id)}
-                crop={crop}
-                zoom={zoom}
-                aspect={aspect}
-                minZoom={1}
-                maxZoom={12}
-                zoomSpeed={0.15}
-                restrictPosition={true}
-                showGrid={false}
-                // Crisp (nearest-neighbour) rendering so low-res / pixel art
-                // stays sharp when you zoom in, instead of blurring.
-                style={{ mediaStyle: { imageRendering: "pixelated" } }}
-                onCropChange={setCrop}
-                onZoomChange={setZoom}
-                onCropComplete={onCropComplete}
-              />
-              {pixelGrid && (
-                <div
-                  className="pixel-grid"
-                  style={{
-                    backgroundSize: `calc(100% / ${cols}) calc(100% / ${rows})`,
-                  }}
-                />
-              )}
-            </>
-          ) : (
+          {!useCrop ? (
             <img src={api.originalUrl(item.id)} alt={item.name} />
+          ) : pixelGrid ? (
+            <PixelCropper
+              imageUrl={api.originalUrl(item.id)}
+              srcW={item.width}
+              srcH={item.height}
+              cols={cols}
+              rows={rows}
+              onChange={onLockedChange}
+            />
+          ) : (
+            <Cropper
+              image={api.originalUrl(item.id)}
+              crop={crop}
+              zoom={zoom}
+              aspect={aspect}
+              minZoom={1}
+              maxZoom={12}
+              zoomSpeed={0.15}
+              restrictPosition={true}
+              showGrid={false}
+              // Crisp (nearest-neighbour) rendering so low-res / pixel art
+              // stays sharp when you zoom in, instead of blurring.
+              style={{ mediaStyle: { imageRendering: "pixelated" } }}
+              onCropChange={setCrop}
+              onZoomChange={setZoom}
+              onCropComplete={onCropComplete}
+            />
           )}
         </div>
 
-        {useCrop && (
+        {useCrop && !pixelGrid && (
           <>
             <div className="control zoom-control">
               <label>
@@ -219,6 +208,9 @@ export default function Editor({ item, onPushed, onToast, pwmBits, panelAspect, 
             </div>
             <p className="hint">Scroll to zoom · drag to pan</p>
           </>
+        )}
+        {useCrop && pixelGrid && (
+          <p className="hint">Locked to {cols}×{rows} (1:1) · drag to move</p>
         )}
       </div>
 
