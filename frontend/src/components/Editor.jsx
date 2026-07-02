@@ -71,12 +71,15 @@ export default function Editor({ item, onPushed, onToast, pwmBits, panelAspect, 
     ? lockedCrop
     : cropFromPixels(areaPixels, item.width, item.height);
   const settings = {
-    fit,
+    // Pixel-lock forces native 1:1 placement + nearest so the cropped source
+    // pixels map exactly to panel pixels (never upscaled) — correct for sources
+    // smaller than the panel too (centred with a black surround).
+    fit: pixelGrid ? "center" : fit,
     crop: cropRegion,
     brightness: color.brightness,
     contrast: color.contrast,
     saturation: color.saturation,
-    nearest,
+    nearest: pixelGrid ? true : nearest,
   };
 
   const onLockedChange = useCallback((c) => setLockedCrop(c), []);
@@ -234,19 +237,29 @@ export default function Editor({ item, onPushed, onToast, pwmBits, panelAspect, 
 
         <div className="control">
           <label>Fit mode</label>
-          <select value={fit} onChange={(e) => setFit(e.target.value)}>
+          <select
+            value={pixelGrid ? "center" : fit}
+            disabled={pixelGrid}
+            onChange={(e) => setFit(e.target.value)}
+          >
             <option value="cover">Cover (fill, crop overflow)</option>
             <option value="contain">Contain (letterbox, scale to fit)</option>
             <option value="center">Native (1:1, centered — no scaling)</option>
             <option value="integer">Integer zoom (crisp pixels)</option>
             <option value="stretch">Stretch</option>
           </select>
+          {pixelGrid && (
+            <span className="field-hint">
+              Locked to 1:1 native placement in pixel-lock mode.
+            </span>
+          )}
         </div>
 
         <label className="checkbox">
           <input
             type="checkbox"
-            checked={nearest}
+            checked={pixelGrid ? true : nearest}
+            disabled={pixelGrid}
             onChange={(e) => setNearest(e.target.checked)}
           />
           Crisp pixels (no smoothing)
