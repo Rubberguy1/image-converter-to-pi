@@ -35,6 +35,7 @@ class SettingsIn(BaseModel):
     brightness: float = Field(1.0, ge=0.1, le=3.0)
     contrast: float = Field(1.0, ge=0.1, le=3.0)
     saturation: float = Field(1.0, ge=0.0, le=3.0)
+    nearest: bool = False
 
     def to_render_settings(self) -> RenderSettings:
         return RenderSettings(
@@ -43,6 +44,7 @@ class SettingsIn(BaseModel):
             brightness=self.brightness,
             contrast=self.contrast,
             saturation=self.saturation,
+            nearest=self.nearest,
         )
 
 

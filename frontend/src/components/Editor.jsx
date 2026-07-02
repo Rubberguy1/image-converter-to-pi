@@ -3,22 +3,35 @@ import Cropper from "react-easy-crop";
 import { api } from "../api.js";
 import Resizer, { clamp } from "./Resizer.jsx";
 
-// Build the settings payload sent to the backend.
-function buildSettings(useCrop, area, fit, color) {
+const clamp01 = (v) => Math.max(0, Math.min(1, v));
+
+// Build the settings payload sent to the backend. Works from croppedAreaPixels
+// (source-pixel coordinates); when `snap` is on those are rounded to whole
+// source pixels so the crop maps to the panel with no fractional sampling.
+function buildSettings({ useCrop, pixels, srcW, srcH, snap, fit, color, nearest }) {
+  let crop = null;
+  if (useCrop && pixels && srcW && srcH) {
+    let { x, y, width, height } = pixels;
+    if (snap) {
+      x = Math.round(x);
+      y = Math.round(y);
+      width = Math.round(width);
+      height = Math.round(height);
+    }
+    crop = {
+      x: clamp01(x / srcW),
+      y: clamp01(y / srcH),
+      w: clamp01(width / srcW),
+      h: clamp01(height / srcH),
+    };
+  }
   return {
     fit,
-    crop:
-      useCrop && area
-        ? {
-            x: Math.max(0, area.x / 100),
-            y: Math.max(0, area.y / 100),
-            w: Math.min(1, area.width / 100),
-            h: Math.min(1, area.height / 100),
-          }
-        : null,
+    crop,
     brightness: color.brightness,
     contrast: color.contrast,
     saturation: color.saturation,
+    nearest,
   };
 }
 
@@ -30,9 +43,10 @@ export default function Editor({ item, onPushed, onToast, pwmBits, panelAspect, 
 
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
-  const [areaPercent, setAreaPercent] = useState(null);
+  const [areaPixels, setAreaPixels] = useState(null);
   const [useCrop, setUseCrop] = useState(Boolean(item.settings.crop));
   const [pixelGrid, setPixelGrid] = useState(false);
+  const [nearest, setNearest] = useState(Boolean(item.settings.nearest));
   const [fit, setFit] = useState(item.settings.fit || "cover");
   const [color, setColor] = useState({
     brightness: item.settings.brightness ?? 1,
@@ -55,8 +69,9 @@ export default function Editor({ item, onPushed, onToast, pwmBits, panelAspect, 
   useEffect(() => {
     setCrop({ x: 0, y: 0 });
     setZoom(1);
-    setAreaPercent(null);
+    setAreaPixels(null);
     setUseCrop(Boolean(item.settings.crop));
+    setNearest(Boolean(item.settings.nearest));
     setFit(item.settings.fit || "cover");
     setColor({
       brightness: item.settings.brightness ?? 1,
@@ -65,7 +80,16 @@ export default function Editor({ item, onPushed, onToast, pwmBits, panelAspect, 
     });
   }, [item.id]);
 
-  const settings = buildSettings(useCrop, areaPercent, fit, color);
+  const settings = buildSettings({
+    useCrop,
+    pixels: areaPixels,
+    srcW: item.width,
+    srcH: item.height,
+    snap: pixelGrid,
+    fit,
+    color,
+    nearest,
+  });
 
   // Debounced live preview whenever settings change.
   useEffect(() => {
@@ -83,9 +107,11 @@ export default function Editor({ item, onPushed, onToast, pwmBits, panelAspect, 
     }, 250);
     return () => clearTimeout(previewTimer.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [item.id, useCrop, areaPercent, fit, color.brightness, color.contrast, color.saturation, pwmBits]);
+  }, [item.id, useCrop, areaPixels, pixelGrid, nearest, fit, color.brightness, color.contrast, color.saturation, pwmBits]);
 
-  const onCropComplete = useCallback((_area) => setAreaPercent(_area), []);
+  // react-easy-crop gives cropped area in percent and in source pixels; we use
+  // pixels so we can snap to whole source pixels.
+  const onCropComplete = useCallback((_percent, pixels) => setAreaPixels(pixels), []);
 
   async function push() {
     setBusy(true);
@@ -155,6 +181,9 @@ export default function Editor({ item, onPushed, onToast, pwmBits, panelAspect, 
                 zoomSpeed={0.15}
                 restrictPosition={true}
                 showGrid={false}
+                // Crisp (nearest-neighbour) rendering so low-res / pixel art
+                // stays sharp when you zoom in, instead of blurring.
+                style={{ mediaStyle: { imageRendering: "pixelated" } }}
                 onCropChange={setCrop}
                 onZoomChange={setZoom}
                 onCropComplete={onCropComplete}
@@ -221,6 +250,15 @@ export default function Editor({ item, onPushed, onToast, pwmBits, panelAspect, 
             <option value="stretch">Stretch</option>
           </select>
         </div>
+
+        <label className="checkbox">
+          <input
+            type="checkbox"
+            checked={nearest}
+            onChange={(e) => setNearest(e.target.checked)}
+          />
+          Crisp pixels (no smoothing)
+        </label>
 
         <Slider
           label="Brightness"

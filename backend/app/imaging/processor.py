@@ -58,7 +58,14 @@ class RenderOptions:
     contrast: float = 1.0
     saturation: float = 1.0
     background: tuple[int, int, int] = (0, 0, 0)  # letterbox fill for "contain"
+    # Nearest-neighbour resampling instead of Lanczos — keeps pixel art crisp
+    # (no smoothing/blur) at the cost of smoothness for photos.
+    nearest: bool = False
     max_frames: int = 256  # safety cap for huge GIFs
+
+    @property
+    def resample(self):
+        return Image.NEAREST if self.nearest else Image.LANCZOS
 
 
 @dataclass
@@ -78,7 +85,7 @@ def _fit(img: Image.Image, opts: RenderOptions) -> Image.Image:
     sw, sh = img.width, img.height
 
     if opts.fit == "stretch":
-        return img.resize((tw, th), Image.LANCZOS)
+        return img.resize((tw, th), opts.resample)
 
     if opts.fit == "center":
         # No scaling: place the source at its native pixel size, centred, on a
@@ -100,7 +107,7 @@ def _fit(img: Image.Image, opts: RenderOptions) -> Image.Image:
     if opts.fit == "contain":
         scale = min(tw / sw, th / sh)
         nw, nh = max(1, round(sw * scale)), max(1, round(sh * scale))
-        resized = img.resize((nw, nh), Image.LANCZOS)
+        resized = img.resize((nw, nh), opts.resample)
         canvas = Image.new("RGB", (tw, th), opts.background)
         canvas.paste(resized, ((tw - nw) // 2, (th - nh) // 2))
         return canvas
@@ -108,7 +115,7 @@ def _fit(img: Image.Image, opts: RenderOptions) -> Image.Image:
     # cover (default): fill the panel, centre-crop the overflow.
     scale = max(tw / sw, th / sh)
     nw, nh = max(1, round(sw * scale)), max(1, round(sh * scale))
-    resized = img.resize((nw, nh), Image.LANCZOS)
+    resized = img.resize((nw, nh), opts.resample)
     left = (nw - tw) // 2
     top = (nh - th) // 2
     return resized.crop((left, top, left + tw, top + th))
