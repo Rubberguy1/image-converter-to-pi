@@ -7,14 +7,16 @@ import WledPanel from "./components/WledPanel.jsx";
 import StatusBar from "./components/StatusBar.jsx";
 import SettingsModal from "./components/SettingsModal.jsx";
 import PowerWidget from "./components/PowerWidget.jsx";
+import Resizer, { clamp } from "./components/Resizer.jsx";
 
-// Aspect ratio of the panel for the crop tool. For 90/270 orientation the content
-// is rendered with axes swapped, so the crop matches the as-mounted shape.
-function panelAspect(m) {
-  if (!m || !m.width || !m.height) return 1;
-  return m.orientation === 90 || m.orientation === 270
-    ? m.height / m.width
-    : m.width / m.height;
+// Panel content pixel dimensions for the crop tool. For 90/270 orientation the
+// content is rendered with axes swapped (the as-mounted shape).
+function contentDims(m) {
+  if (!m || !m.width || !m.height) return { cols: 64, rows: 64 };
+  const swapped = m.orientation === 90 || m.orientation === 270;
+  return swapped
+    ? { cols: m.height, rows: m.width }
+    : { cols: m.width, rows: m.height };
 }
 
 export default function App() {
@@ -24,6 +26,12 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [error, setError] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [leftWidth, setLeftWidth] = useState(
+    () => Number(localStorage.getItem("pp.leftWidth")) || 320
+  );
+  useEffect(() => {
+    localStorage.setItem("pp.leftWidth", leftWidth);
+  }, [leftWidth]);
 
   const showToast = useCallback((msg, isError = false) => {
     setToast({ msg, isError });
@@ -83,7 +91,7 @@ export default function App() {
       </header>
 
       <main>
-        <aside className="sidebar">
+        <aside className="sidebar" style={{ width: leftWidth }}>
           <Gallery
             items={items}
             selectedId={selectedId}
@@ -106,13 +114,17 @@ export default function App() {
           )}
         </aside>
 
+        <Resizer onDrag={(x) => setLeftWidth(clamp(x, 220, 520))} />
+
         <section className="workspace">
           {selected ? (
             <Editor
               key={selected.id}
               item={selected}
               pwmBits={status.matrix.pwm_bits}
-              panelAspect={panelAspect(status.matrix)}
+              panelAspect={contentDims(status.matrix).cols / contentDims(status.matrix).rows}
+              gridCols={contentDims(status.matrix).cols}
+              gridRows={contentDims(status.matrix).rows}
               onPushed={refreshStatus}
               onToast={showToast}
             />

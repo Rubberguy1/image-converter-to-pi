@@ -1,14 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import Cropper from "react-easy-crop";
 import { api } from "../api.js";
-
-const DEFAULT_SETTINGS = {
-  fit: "cover",
-  crop: null,
-  brightness: 1,
-  contrast: 1,
-  saturation: 1,
-};
+import Resizer, { clamp } from "./Resizer.jsx";
 
 // Build the settings payload sent to the backend.
 function buildSettings(useCrop, area, fit, color) {
@@ -29,14 +22,17 @@ function buildSettings(useCrop, area, fit, color) {
   };
 }
 
-export default function Editor({ item, onPushed, onToast, pwmBits, panelAspect }) {
+export default function Editor({ item, onPushed, onToast, pwmBits, panelAspect, gridCols, gridRows }) {
   // Crop to the panel's shape so the selection maps 1:1 to the display.
-  // Defaults to square (single 64x64) until a multi-panel layout is configured.
   const aspect = panelAspect && panelAspect > 0 ? panelAspect : 1;
+  const cols = gridCols || 64;
+  const rows = gridRows || 64;
+
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [areaPercent, setAreaPercent] = useState(null);
   const [useCrop, setUseCrop] = useState(Boolean(item.settings.crop));
+  const [pixelGrid, setPixelGrid] = useState(false);
   const [fit, setFit] = useState(item.settings.fit || "cover");
   const [color, setColor] = useState({
     brightness: item.settings.brightness ?? 1,
@@ -46,6 +42,14 @@ export default function Editor({ item, onPushed, onToast, pwmBits, panelAspect }
   const [previewUrl, setPreviewUrl] = useState(null);
   const [busy, setBusy] = useState(false);
   const previewTimer = useRef(null);
+
+  // Resizable right panel (persisted).
+  const [panelWidth, setPanelWidth] = useState(
+    () => Number(localStorage.getItem("pp.rightWidth")) || 340
+  );
+  useEffect(() => {
+    localStorage.setItem("pp.rightWidth", panelWidth);
+  }, [panelWidth]);
 
   // Reset local state when a different item is selected.
   useEffect(() => {
@@ -81,11 +85,7 @@ export default function Editor({ item, onPushed, onToast, pwmBits, panelAspect }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item.id, useCrop, areaPercent, fit, color.brightness, color.contrast, color.saturation, pwmBits]);
 
-  const onCropComplete = useCallback((_area, areaPct) => {
-    // react-easy-crop gives the cropped area both in pixels and percent; we use
-    // percent so it's resolution-independent.
-    setAreaPercent(_area);
-  }, []);
+  const onCropComplete = useCallback((_area) => setAreaPercent(_area), []);
 
   async function push() {
     setBusy(true);
@@ -116,108 +116,141 @@ export default function Editor({ item, onPushed, onToast, pwmBits, panelAspect }
 
   return (
     <div className="editor">
-      <h2>{item.name}</h2>
-      <div className="editor-grid">
-        <div className="crop-col">
+      <div className="editor-main">
+        <div className="editor-head">
+          <h2>{item.name}</h2>
           <label className="checkbox">
             <input
               type="checkbox"
               checked={useCrop}
               onChange={(e) => setUseCrop(e.target.checked)}
             />
-            Crop to a region (square)
+            Crop to a region
           </label>
+          {useCrop && (
+            <label className="checkbox">
+              <input
+                type="checkbox"
+                checked={pixelGrid}
+                onChange={(e) => setPixelGrid(e.target.checked)}
+              />
+              Pixel grid ({cols}×{rows})
+            </label>
+          )}
+        </div>
 
+        <div
+          className={`crop-area ${useCrop ? "" : "static"}`}
+          style={{ "--panel-aspect": aspect }}
+        >
           {useCrop ? (
-            <div className="crop-area">
+            <>
               <Cropper
                 image={api.originalUrl(item.id)}
                 crop={crop}
                 zoom={zoom}
                 aspect={aspect}
                 minZoom={1}
+                maxZoom={12}
+                zoomSpeed={0.15}
                 restrictPosition={true}
+                showGrid={false}
                 onCropChange={setCrop}
                 onZoomChange={setZoom}
                 onCropComplete={onCropComplete}
               />
-            </div>
+              {pixelGrid && (
+                <div
+                  className="pixel-grid"
+                  style={{
+                    backgroundSize: `calc(100% / ${cols}) calc(100% / ${rows})`,
+                  }}
+                />
+              )}
+            </>
           ) : (
-            <div className="crop-area static">
-              <img src={api.originalUrl(item.id)} alt={item.name} />
-            </div>
+            <img src={api.originalUrl(item.id)} alt={item.name} />
           )}
+        </div>
 
-          {useCrop && (
-            <div className="control">
-              <label>Zoom</label>
+        {useCrop && (
+          <>
+            <div className="control zoom-control">
+              <label>
+                Zoom <span className="val">{zoom.toFixed(1)}×</span>
+              </label>
               <input
                 type="range"
                 min="1"
-                max="4"
-                step="0.01"
+                max="12"
+                step="0.1"
                 value={zoom}
                 onChange={(e) => setZoom(Number(e.target.value))}
               />
             </div>
+            <p className="hint">Scroll to zoom · drag to pan</p>
+          </>
+        )}
+      </div>
+
+      <Resizer
+        onDrag={(x) => setPanelWidth(clamp(window.innerWidth - x, 280, 560))}
+      />
+
+      <aside className="settings-col" style={{ width: panelWidth }}>
+        <div className="preview-box">
+          <span className="preview-label">Panel preview</span>
+          {previewUrl ? (
+            <img className="panel-preview" src={previewUrl} alt="preview" />
+          ) : (
+            <div className="panel-preview placeholder">…</div>
+          )}
+          {item.animated && <span className="badge">GIF · animated</span>}
+          {pwmBits < 11 && (
+            <span className="badge depth">simulating {pwmBits}-bit color</span>
           )}
         </div>
 
-        <div className="settings-col">
-          <div className="preview-box">
-            <span className="preview-label">Panel preview</span>
-            {previewUrl ? (
-              <img className="panel-preview" src={previewUrl} alt="preview" />
-            ) : (
-              <div className="panel-preview placeholder">…</div>
-            )}
-            {item.animated && <span className="badge">GIF · animated</span>}
-            {pwmBits < 11 && (
-              <span className="badge depth">simulating {pwmBits}-bit color</span>
-            )}
-          </div>
-
-          <div className="control">
-            <label>Fit mode</label>
-            <select value={fit} onChange={(e) => setFit(e.target.value)}>
-              <option value="cover">Cover (fill, crop overflow)</option>
-              <option value="contain">Contain (letterbox, scale to fit)</option>
-              <option value="center">Native (1:1, centered — no scaling)</option>
-              <option value="integer">Integer zoom (crisp pixels)</option>
-              <option value="stretch">Stretch</option>
-            </select>
-          </div>
-
-          <Slider
-            label="Brightness"
-            value={color.brightness}
-            min={0.1}
-            max={3}
-            onChange={(v) => setColor((c) => ({ ...c, brightness: v }))}
-          />
-          <Slider
-            label="Contrast"
-            value={color.contrast}
-            min={0.1}
-            max={3}
-            onChange={(v) => setColor((c) => ({ ...c, contrast: v }))}
-          />
-          <Slider
-            label="Saturation"
-            value={color.saturation}
-            min={0}
-            max={3}
-            onChange={(v) => setColor((c) => ({ ...c, saturation: v }))}
-          />
-
-          <div className="actions">
-            <button className="primary" onClick={push} disabled={busy}>
-              {busy ? "Pushing…" : "▶ Push to panel"}
-            </button>
-            <button onClick={save}>Save settings</button>
-          </div>
+        <div className="control">
+          <label>Fit mode</label>
+          <select value={fit} onChange={(e) => setFit(e.target.value)}>
+            <option value="cover">Cover (fill, crop overflow)</option>
+            <option value="contain">Contain (letterbox, scale to fit)</option>
+            <option value="center">Native (1:1, centered — no scaling)</option>
+            <option value="integer">Integer zoom (crisp pixels)</option>
+            <option value="stretch">Stretch</option>
+          </select>
         </div>
-      </div>
+
+        <Slider
+          label="Brightness"
+          value={color.brightness}
+          min={0.1}
+          max={3}
+          onChange={(v) => setColor((c) => ({ ...c, brightness: v }))}
+        />
+        <Slider
+          label="Contrast"
+          value={color.contrast}
+          min={0.1}
+          max={3}
+          onChange={(v) => setColor((c) => ({ ...c, contrast: v }))}
+        />
+        <Slider
+          label="Saturation"
+          value={color.saturation}
+          min={0}
+          max={3}
+          onChange={(v) => setColor((c) => ({ ...c, saturation: v }))}
+        />
+
+        <div className="actions">
+          <button className="primary" onClick={push} disabled={busy}>
+            {busy ? "Pushing…" : "▶ Push to panel"}
+          </button>
+          <button onClick={save}>Save settings</button>
+        </div>
+      </aside>
     </div>
   );
 }
