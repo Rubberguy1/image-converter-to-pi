@@ -81,11 +81,13 @@ export default function SceneControls({ sc, cols, rows, media }) {
       <div className="settings-section">
         <h4>Add widget</h4>
         <div className="widget-add">
+          <button onClick={() => sc.addWidget("image", cols, rows)}>🖼 Image</button>
           <button onClick={() => sc.addWidget("clock", cols, rows)}>🕐 Clock</button>
           <button onClick={() => sc.addWidget("text", cols, rows)}>T Text</button>
           <button onClick={() => sc.addWidget("weather", cols, rows)}>☀ Weather</button>
           <button onClick={() => sc.addWidget("value", cols, rows)}># Value</button>
         </div>
+        <p className="field-hint">Or click a library image below to drop it in.</p>
       </div>
 
       {sel && (
@@ -147,6 +149,42 @@ export default function SceneControls({ sc, cols, rows, media }) {
           {sel.type === "weather" && (
             <p className="field-hint">Set your location in the Weather box below.</p>
           )}
+          {sel.type === "image" && (
+            <>
+              <div className="control">
+                <label>Image</label>
+                <select
+                  value={sel.config.media_id || ""}
+                  onChange={(e) => sc.updateConfig(sel.id, { media_id: e.target.value || null })}
+                >
+                  <option value="">— pick —</option>
+                  {(media || []).map((m) => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="control">
+                <label>Size (w × h)</label>
+                <div className="row2">
+                  <input type="number" min="1" max={cols} value={sel.config.w || cols}
+                    onChange={(e) => sc.updateConfig(sel.id, { w: Number(e.target.value) })} />
+                  <input type="number" min="1" max={rows} value={sel.config.h || rows}
+                    onChange={(e) => sc.updateConfig(sel.id, { h: Number(e.target.value) })} />
+                </div>
+              </div>
+              <div className="control">
+                <label>Fit</label>
+                <select value={sel.config.fit || "cover"}
+                  onChange={(e) => sc.updateConfig(sel.id, { fit: e.target.value })}>
+                  <option value="cover">Cover (fill, crop)</option>
+                  <option value="contain">Contain (letterbox)</option>
+                  <option value="center">Native (1:1)</option>
+                  <option value="integer">Integer zoom (crisp)</option>
+                  <option value="stretch">Stretch</option>
+                </select>
+              </div>
+            </>
+          )}
 
           <div className="control">
             <label>Position (x, y)</label>
@@ -167,32 +205,34 @@ export default function SceneControls({ sc, cols, rows, media }) {
               />
             </div>
           </div>
-          <div className="control">
-            <label>Size / color / align</label>
-            <div className="row3">
-              <input
-                type="number"
-                min="4"
-                max="48"
-                value={sel.size}
-                onChange={(e) => sc.updateWidget(sel.id, { size: Number(e.target.value) })}
-              />
-              <input
-                type="color"
-                value={sel.color}
-                onChange={(e) => sc.updateWidget(sel.id, { color: e.target.value })}
-              />
-              <select
-                value={sel.align}
-                onChange={(e) => sc.updateWidget(sel.id, { align: e.target.value })}
-              >
-                <option value="left">L</option>
-                <option value="center">C</option>
-                <option value="right">R</option>
-              </select>
+          {sel.type !== "image" && (
+            <div className="control">
+              <label>Size / color / align</label>
+              <div className="row3">
+                <input
+                  type="number"
+                  min="4"
+                  max="48"
+                  value={sel.size}
+                  onChange={(e) => sc.updateWidget(sel.id, { size: Number(e.target.value) })}
+                />
+                <input
+                  type="color"
+                  value={sel.color}
+                  onChange={(e) => sc.updateWidget(sel.id, { color: e.target.value })}
+                />
+                <select
+                  value={sel.align}
+                  onChange={(e) => sc.updateWidget(sel.id, { align: e.target.value })}
+                >
+                  <option value="left">L</option>
+                  <option value="center">C</option>
+                  <option value="right">R</option>
+                </select>
+              </div>
             </div>
-          </div>
-          <button onClick={() => sc.removeWidget(sel.id)}>Remove widget</button>
+          )}
+          <button onClick={() => sc.removeWidget(sel.id)}>Remove {sel.type}</button>
         </div>
       )}
 

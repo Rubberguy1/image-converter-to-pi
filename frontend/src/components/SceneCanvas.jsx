@@ -1,7 +1,7 @@
 import React, { useRef } from "react";
 import { clamp } from "./Resizer.jsx";
 
-const ICON = { clock: "🕐", text: "T", weather: "☀", value: "#" };
+const ICON = { clock: "🕐", text: "T", weather: "☀", value: "#", image: "🖼" };
 
 // The center edit area: a live server-rendered preview of the scene with the
 // pixel grid and draggable widget markers.

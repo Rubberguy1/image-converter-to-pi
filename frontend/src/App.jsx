@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { api } from "./api.js";
 import Gallery from "./components/Gallery.jsx";
-import Editor from "./components/Editor.jsx";
 import MusicPanel from "./components/MusicPanel.jsx";
 import WledPanel from "./components/WledPanel.jsx";
 import ScreenMirror from "./components/ScreenMirror.jsx";
@@ -25,7 +24,6 @@ function contentDims(m) {
 export default function App() {
   const [status, setStatus] = useState(null);
   const [items, setItems] = useState([]);
-  const [selectedId, setSelectedId] = useState(null);
   const [toast, setToast] = useState(null);
   const [error, setError] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
@@ -87,8 +85,6 @@ export default function App() {
     };
   }, []);
 
-  const selected = items.find((i) => i.id === selectedId) || null;
-
   if (!status) {
     return (
       <div className="app loading">
@@ -136,8 +132,10 @@ export default function App() {
         <aside className="sidebar" style={{ width: leftWidth }}>
           <Gallery
             items={items}
-            selectedId={selectedId}
-            onSelect={(id) => setSelectedId((cur) => (cur === id ? null : id))}
+            onAddImage={(item) => {
+              sc.addImage(item, dims.cols, dims.rows);
+              showToast(`Added "${item.name}" to the scene`);
+            }}
             onChanged={refreshMedia}
             onToast={showToast}
           />
@@ -147,20 +145,7 @@ export default function App() {
         <Resizer onDrag={(x) => setLeftWidth(clamp(x, 240, 560))} />
 
         <section className="workspace">
-          {selected ? (
-            <Editor
-              key={selected.id}
-              item={selected}
-              pwmBits={status.matrix.pwm_bits}
-              panelAspect={dims.cols / dims.rows}
-              gridCols={dims.cols}
-              gridRows={dims.rows}
-              onPushed={refreshStatus}
-              onToast={showToast}
-            />
-          ) : (
-            <SceneCanvas sc={sc} cols={dims.cols} rows={dims.rows} />
-          )}
+          <SceneCanvas sc={sc} cols={dims.cols} rows={dims.rows} />
         </section>
       </main>
 

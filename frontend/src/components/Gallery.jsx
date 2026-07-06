@@ -1,7 +1,7 @@
 import React, { useRef, useState } from "react";
 import { api } from "../api.js";
 
-export default function Gallery({ items, selectedId, onSelect, onChanged, onToast }) {
+export default function Gallery({ items, onAddImage, onChanged, onToast }) {
   const fileInput = useRef(null);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -68,9 +68,9 @@ export default function Gallery({ items, selectedId, onSelect, onChanged, onToas
         {items.map((it) => (
           <div
             key={it.id}
-            className={`thumb ${it.id === selectedId ? "selected" : ""}`}
-            onClick={() => onSelect(it.id)}
-            title={it.name}
+            className="thumb"
+            onClick={() => onAddImage(it)}
+            title={`Add ${it.name} to the scene`}
           >
             <img src={api.thumbUrl(it.id)} alt={it.name} />
             {it.animated && <span className="thumb-badge">GIF</span>}

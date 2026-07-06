@@ -33,10 +33,10 @@ on/off state of your WLED lights.
 - **Music album-art sync** with a spinning-CD effect. Providers for **Plex**,
   **VLC**, and **Last.fm** (universal — works with YouTube Music and anything that
   scrobbles).
-- **Custom scenes with widgets** — compose a persistent dashboard: a background
-  image/GIF plus placeable **clock**, **text**, **weather** (free, no key), and
-  **pushed-value** (e.g. phone battery) widgets. Runs on the Pi so it keeps
-  ticking with no browser open.
+- **Scene composer** — everything is a scene: drop in **images/GIFs**, place
+  **clock**, **text**, **weather** (free, no key), and **pushed-value** (e.g.
+  phone battery) widgets on top, position each on the grid, and save. Runs
+  persistently on the Pi (clock ticks, weather refreshes) with no browser open.
 - **WLED power sync** — blank/wake the panel with your WLED lights (or vice versa).
 - **Screen mirror** — stream a cropped, downscaled view of your PC's screen to the
   panel in real time (browser screen capture → WebSocket; needs HTTPS/localhost).

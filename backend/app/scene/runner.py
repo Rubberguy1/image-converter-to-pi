@@ -34,7 +34,9 @@ class SceneRunner:
         self._weather: dict | None = None
         self._weather_at = 0.0
         self._values: dict[str, object] = {}
-        self._bg_cache: tuple | None = None  # (media_id, images, durations, total_ms)
+        # Rendered media frames keyed by (media_id, w, h, fit) — shared by the
+        # background and image widgets.
+        self._media_cache: dict[tuple, tuple] = {}
         self._fps = 5
         self._task: asyncio.Task | None = None
 
@@ -56,7 +58,6 @@ class SceneRunner:
     def set_scene(self, scene: Scene) -> None:
         self.scene = scene
         save_scene(scene)
-        self._bg_cache = None
         if not scene.enabled:
             self._player.clear_scene()
 
@@ -132,7 +133,10 @@ class SceneRunner:
         ctx = {"weather": self._weather, "values": self._values}
         for widget in scene.widgets:
             try:
-                draw_widget(base, widget, ctx)
+                if widget.type == "image":
+                    self._draw_image(base, widget)
+                else:
+                    draw_widget(base, widget, ctx)
             except Exception:
                 log.debug("widget %s draw failed", widget.id, exc_info=True)
         return base
@@ -141,37 +145,50 @@ class SceneRunner:
         if bg.type == "color":
             return Image.new("RGB", (cw, ch), hex_rgb(bg.color))
         if bg.type == "media" and bg.media_id:
-            images = self._bg_frames(bg, cw, ch)
-            if images:
-                return images[self._bg_index()].copy()
+            frame = self._media_frame(bg.media_id, cw, ch, bg.fit)
+            if frame is not None:
+                return frame.copy()
         return Image.new("RGB", (cw, ch), (0, 0, 0))
 
-    def _bg_frames(self, bg, cw: int, ch: int):
-        if self._bg_cache and self._bg_cache[0] == bg.media_id:
-            return self._bg_cache[1]
-        item = self._library.get(bg.media_id)
-        if not item:
-            return None
-        try:
-            frames = render_to_frames(
-                item.original_path, RenderOptions(cw, ch, fit=bg.fit)
-            )
-        except Exception:
-            log.exception("scene background render failed")
-            return None
-        images = [f.image for f in frames]
-        durations = [f.duration_ms for f in frames]
-        self._bg_cache = (bg.media_id, images, durations, sum(durations) or 100)
-        return images
+    def _draw_image(self, base: Image.Image, widget) -> None:
+        cfg = widget.config
+        mid = cfg.get("media_id")
+        w = int(cfg.get("w") or 0)
+        h = int(cfg.get("h") or 0)
+        if not mid or w <= 0 or h <= 0:
+            return
+        frame = self._media_frame(mid, w, h, cfg.get("fit", "cover"))
+        if frame is not None:
+            base.paste(frame, (int(widget.x), int(widget.y)))
 
-    def _bg_index(self) -> int:
-        if not self._bg_cache or len(self._bg_cache[1]) <= 1:
-            return 0
-        _, images, durations, total = self._bg_cache
+    def _media_frame(self, media_id: str, w: int, h: int, fit: str):
+        """Current frame (animation cycles by wall-clock) of a media item rendered
+        to w×h with the given fit. Cached across ticks; shared by background +
+        image widgets."""
+        key = (media_id, w, h, fit)
+        cached = self._media_cache.get(key)
+        if cached is None:
+            item = self._library.get(media_id)
+            if not item:
+                return None
+            try:
+                frames = render_to_frames(item.original_path, RenderOptions(w, h, fit=fit))
+            except Exception:
+                log.exception("scene media render failed")
+                return None
+            images = [f.image for f in frames]
+            durations = [f.duration_ms for f in frames]
+            cached = (images, durations, sum(durations) or 100)
+            if len(self._media_cache) > 16:  # bound the cache
+                self._media_cache.pop(next(iter(self._media_cache)))
+            self._media_cache[key] = cached
+        images, durations, total = cached
+        if len(images) <= 1:
+            return images[0] if images else None
         t = (time.monotonic() * 1000) % total
         acc = 0
         for i, d in enumerate(durations):
             acc += d
             if t < acc:
-                return i
-        return len(images) - 1
+                return images[i]
+        return images[-1]

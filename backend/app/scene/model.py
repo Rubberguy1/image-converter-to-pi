@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 _PATH = DATA_DIR / "scene.json"
 
 # Widget types the compositor knows how to draw.
-WIDGET_TYPES = {"clock", "text", "weather", "value"}
+WIDGET_TYPES = {"clock", "text", "weather", "value", "image"}
 
 
 @dataclass

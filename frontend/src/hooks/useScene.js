@@ -24,6 +24,7 @@ export function newWidget(type, cols, rows) {
   if (type === "clock") base.config = { format: "%H:%M" };
   if (type === "text") base.config = { text: "TEXT" };
   if (type === "value") base.config = { name: "battery", label: "", suffix: "%" };
+  if (type === "image") base.config = { media_id: null, w: cols || 64, h: rows || 64, fit: "cover" };
   return base;
 }
 
@@ -64,6 +65,19 @@ export function useScene(onToast, onChanged) {
       setScene((s) => ({ ...s, background: { ...s.background, ...patch } })),
     addWidget: (type, cols, rows) => {
       const w = newWidget(type, cols, rows);
+      setScene((s) => ({ ...s, widgets: [...s.widgets, w] }));
+      setSelId(w.id);
+    },
+    // Place a library image into the scene as an image widget (at native size,
+    // capped to the panel), positioned top-left.
+    addImage: (item, cols, rows) => {
+      const w = newWidget("image", cols, rows);
+      w.config = {
+        media_id: item.id,
+        w: Math.min(cols, item.width || cols),
+        h: Math.min(rows, item.height || rows),
+        fit: "cover",
+      };
       setScene((s) => ({ ...s, widgets: [...s.widgets, w] }));
       setSelId(w.id);
     },
