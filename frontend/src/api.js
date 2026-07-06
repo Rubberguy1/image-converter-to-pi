@@ -88,6 +88,39 @@ export const api = {
       body: JSON.stringify({ provider, enabled, spin }),
     }).then(jsonOrThrow),
 
+  getScene: () => fetch("/api/scene").then(jsonOrThrow),
+
+  saveScene: (scene) =>
+    fetch("/api/scene", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(scene),
+    }).then(jsonOrThrow),
+
+  enableScene: (enabled) =>
+    fetch("/api/scene/enable", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled }),
+    }).then(jsonOrThrow),
+
+  pushSceneValue: (name, value) =>
+    fetch("/api/scene/value", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, value }),
+    }).then(jsonOrThrow),
+
+  scenePreviewUrl: async (scene) => {
+    const resp = await fetch("/api/scene/preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(scene),
+    });
+    if (!resp.ok) throw new Error("scene preview failed");
+    return URL.createObjectURL(await resp.blob());
+  },
+
   originalUrl: (id) => `/api/media/${id}/original`,
   thumbUrl: (id) => `/api/media/${id}/thumb`,
 };

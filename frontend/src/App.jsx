@@ -7,6 +7,7 @@ import WledPanel from "./components/WledPanel.jsx";
 import ScreenMirror from "./components/ScreenMirror.jsx";
 import StatusBar from "./components/StatusBar.jsx";
 import SettingsModal from "./components/SettingsModal.jsx";
+import SceneEditor from "./components/SceneEditor.jsx";
 import PowerWidget from "./components/PowerWidget.jsx";
 import Resizer, { clamp } from "./components/Resizer.jsx";
 
@@ -27,6 +28,7 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [error, setError] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showScene, setShowScene] = useState(false);
   const [leftWidth, setLeftWidth] = useState(
     () => Number(localStorage.getItem("pp.leftWidth")) || 320
   );
@@ -63,6 +65,26 @@ export default function App() {
     return () => clearInterval(t);
   }, [refreshStatus, refreshMedia]);
 
+  // Push this device's battery % so a scene "value" widget named "battery" works.
+  useEffect(() => {
+    if (!navigator.getBattery) return;
+    let battery;
+    let timer;
+    const push = () => {
+      if (battery) api.pushSceneValue("battery", Math.round(battery.level * 100)).catch(() => {});
+    };
+    navigator.getBattery().then((b) => {
+      battery = b;
+      push();
+      b.addEventListener("levelchange", push);
+      timer = setInterval(push, 60000);
+    });
+    return () => {
+      if (timer) clearInterval(timer);
+      if (battery) battery.removeEventListener("levelchange", push);
+    };
+  }, []);
+
   const selected = items.find((i) => i.id === selectedId) || null;
 
   if (!status) {
@@ -82,6 +104,9 @@ export default function App() {
         </h1>
         <StatusBar status={status} onChanged={refreshStatus} onToast={showToast} />
         <PowerWidget power={status.power} />
+        <button className="gear" title="Scene editor" onClick={() => setShowScene(true)}>
+          🎛
+        </button>
         <button
           className="gear"
           title="Settings"
@@ -147,6 +172,17 @@ export default function App() {
         <SettingsModal
           onClose={() => setShowSettings(false)}
           onSaved={refreshStatus}
+          onToast={showToast}
+        />
+      )}
+
+      {showScene && (
+        <SceneEditor
+          cols={contentDims(status.matrix).cols}
+          rows={contentDims(status.matrix).rows}
+          media={items}
+          onClose={() => setShowScene(false)}
+          onChanged={refreshStatus}
           onToast={showToast}
         />
       )}

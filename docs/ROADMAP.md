@@ -94,6 +94,8 @@ Status key: 🟢 easy · 🟡 medium · 🔴 large · 💡 idea/needs design
 - Live panel mirror in the music panel
 - WLED power sync (panel ↔ lights, HTTP)
 - Screen mirror (browser screen capture → WebSocket → panel, live)
+- Custom scenes: background + placeable clock / text / weather / value widgets,
+  composited persistently on the Pi (visual grid editor)
 - Emulator-based dev workflow + `npm run dev` orchestrator + `update.sh`
 - FM6126A / panel-type + GPIO / PWM-LSB / refresh tuning (incl. flicker recipe)
 - systemd service + one-shot Pi installer

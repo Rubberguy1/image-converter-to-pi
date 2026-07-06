@@ -47,6 +47,8 @@ class Player:
         # Live screen-mirror frame (highest content priority below sleep). Each
         # streamed frame replaces the previous one in place.
         self._live: Image.Image | None = None
+        # Composited custom-scene frame (dashboard). Below live, above music.
+        self._scene: Image.Image | None = None
         # When music mode is on, the panel is dedicated to album art: the manual
         # image is suppressed entirely (blank between tracks), not used as a
         # fallback. Turning it off returns control to the manual selection.
@@ -177,6 +179,23 @@ class Player:
             self._gen += 1
         self._wake.set()
 
+    def set_scene(self, image: Image.Image) -> None:
+        """Show a composited custom-scene frame (dashboard)."""
+        with self._lock:
+            starting = self._scene is None
+            self._scene = image
+            if starting:
+                self._gen += 1
+        self._wake.set()
+
+    def clear_scene(self) -> None:
+        with self._lock:
+            if self._scene is None:
+                return
+            self._scene = None
+            self._gen += 1
+        self._wake.set()
+
     def set_brightness(self, value: int) -> None:
         self._matrix.set_brightness(value)
 
@@ -205,6 +224,8 @@ class Player:
             return [], ("off", "Panel asleep", None)
         if self._live is not None:
             return [Frame(self._live)], ("live", "Screen mirror", None)
+        if self._scene is not None:
+            return [Frame(self._scene)], ("scene", "Custom scene", None)
         if self._music is not None:
             return self._music, self._music_meta
         if self._music_mode:

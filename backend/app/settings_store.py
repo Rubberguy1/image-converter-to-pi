@@ -46,6 +46,10 @@ EDITABLE: dict[str, bool] = {
     # WLED.
     "wled_base_url": False,
     "wled_sync_direction": False,
+    # Weather widget location (applies live).
+    "weather_lat": False,
+    "weather_lon": False,
+    "weather_unit": False,
 }
 SECRETS = {k for k, secret in EDITABLE.items() if secret}
 

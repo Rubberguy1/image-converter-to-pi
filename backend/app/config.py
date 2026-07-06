@@ -71,6 +71,11 @@ class Settings(BaseSettings):
     lastfm_api_key: str = ""
     lastfm_user: str = ""
 
+    # --- Custom scene / weather widget ---
+    weather_lat: float = 0.0
+    weather_lon: float = 0.0
+    weather_unit: Literal["fahrenheit", "celsius"] = "fahrenheit"
+
     # --- WLED power sync ---
     # Mirror on/off state between the panel and a WLED device (HTTP JSON API).
     wled_enabled: bool = False

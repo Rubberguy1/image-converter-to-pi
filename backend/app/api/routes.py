@@ -108,6 +108,10 @@ class SettingsUpdate(BaseModel):
     # WLED connection.
     wled_base_url: str | None = None
     wled_sync_direction: str | None = None
+    # Weather widget location.
+    weather_lat: float | None = None
+    weather_lon: float | None = None
+    weather_unit: str | None = None
 
 
 class BrightnessIn(BaseModel):
@@ -411,6 +415,68 @@ async def update_settings(req: Request, body: SettingsUpdate):
 
     view["restart_required"] = bool(keys & settings_store.RESTART_FIELDS)
     return view
+
+
+# --- custom scene / widgets ---
+class SceneEnableIn(BaseModel):
+    enabled: bool
+
+
+class SceneValueIn(BaseModel):
+    name: str
+    value: str | int | float | None = None
+
+
+def _scene(req: Request):
+    return req.app.state.scene
+
+
+@router.get("/scene")
+async def get_scene(req: Request):
+    runner = _scene(req)
+    return {"scene": runner.scene.to_json(), "status": runner.status()}
+
+
+@router.put("/scene")
+async def put_scene(req: Request, body: dict):
+    from ..scene import Scene
+
+    runner = _scene(req)
+    try:
+        scene = Scene.from_json(body)
+    except Exception as exc:
+        raise HTTPException(400, f"invalid scene: {exc}")
+    runner.set_scene(scene)
+    return {"scene": runner.scene.to_json(), "status": runner.status()}
+
+
+@router.post("/scene/enable")
+async def enable_scene(req: Request, body: SceneEnableIn):
+    _scene(req).set_enabled(body.enabled)
+    return _scene(req).status()
+
+
+@router.post("/scene/value")
+async def push_scene_value(req: Request, body: SceneValueIn):
+    _scene(req).push_value(body.name, body.value)
+    return {"ok": True}
+
+
+@router.post("/scene/preview")
+async def scene_preview(req: Request, body: dict):
+    """Render a (possibly unsaved) scene to a PNG for the editor's live preview."""
+    from ..scene import Scene
+
+    runner = _scene(req)
+    try:
+        scene = Scene.from_json(body)
+    except Exception as exc:
+        raise HTTPException(400, f"invalid scene: {exc}")
+    img = runner.render(scene)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return Response(buf.getvalue(), media_type="image/png",
+                    headers={"Cache-Control": "no-store"})
 
 
 # --- overall status ---
