@@ -137,7 +137,13 @@ export default function ScreenMirror({ cols, rows, onChanged, onToast }) {
       <video ref={videoRef} style={{ display: "none" }} muted playsInline />
 
       {active && (
-        <canvas ref={canvasRef} className="mirror-preview" width={cols} height={rows} />
+        <canvas
+          ref={canvasRef}
+          className="mirror-preview"
+          width={cols}
+          height={rows}
+          style={{ aspectRatio: `${cols} / ${rows}` }}
+        />
       )}
       {!active && <canvas ref={canvasRef} style={{ display: "none" }} />}
 

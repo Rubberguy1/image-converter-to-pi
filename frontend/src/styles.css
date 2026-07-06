@@ -323,12 +323,14 @@ body.grabbing .pixel-lock {
   margin-bottom: 0.5rem;
 }
 .panel-preview {
-  width: 256px;
-  max-width: 100%;
-  aspect-ratio: 1;
+  width: 100%;
+  max-width: 256px;
+  /* Match the panel's shape so non-square walls (e.g. 256x128) aren't squished. */
+  aspect-ratio: var(--panel-aspect, 1);
   image-rendering: pixelated;
   border-radius: 4px;
   background: #000;
+  object-fit: contain;
 }
 .panel-preview.placeholder {
   display: flex;

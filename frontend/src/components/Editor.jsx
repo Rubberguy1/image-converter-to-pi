@@ -217,7 +217,7 @@ export default function Editor({ item, onPushed, onToast, pwmBits, panelAspect, 
       />
 
       <aside className="settings-col" style={{ width: panelWidth }}>
-        <div className="preview-box">
+        <div className="preview-box" style={{ "--panel-aspect": aspect }}>
           <span className="preview-label">Panel preview</span>
           {previewUrl ? (
             <img className="panel-preview" src={previewUrl} alt="preview" />
