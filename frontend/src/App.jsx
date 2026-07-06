@@ -7,18 +7,19 @@ import WledPanel from "./components/WledPanel.jsx";
 import ScreenMirror from "./components/ScreenMirror.jsx";
 import StatusBar from "./components/StatusBar.jsx";
 import SettingsModal from "./components/SettingsModal.jsx";
-import SceneEditor from "./components/SceneEditor.jsx";
+import SceneCanvas from "./components/SceneCanvas.jsx";
+import SceneControls from "./components/SceneControls.jsx";
+import HeaderDropdown from "./components/HeaderDropdown.jsx";
 import PowerWidget from "./components/PowerWidget.jsx";
 import Resizer, { clamp } from "./components/Resizer.jsx";
+import { useScene } from "./hooks/useScene.js";
 
-// Panel content pixel dimensions for the crop tool. For 90/270 orientation the
-// content is rendered with axes swapped (the as-mounted shape).
+// Panel content pixel dimensions. For 90/270 orientation the content is rendered
+// with axes swapped (the as-mounted shape).
 function contentDims(m) {
   if (!m || !m.width || !m.height) return { cols: 64, rows: 64 };
   const swapped = m.orientation === 90 || m.orientation === 270;
-  return swapped
-    ? { cols: m.height, rows: m.width }
-    : { cols: m.width, rows: m.height };
+  return swapped ? { cols: m.height, rows: m.width } : { cols: m.width, rows: m.height };
 }
 
 export default function App() {
@@ -28,9 +29,8 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [error, setError] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
-  const [showScene, setShowScene] = useState(false);
   const [leftWidth, setLeftWidth] = useState(
-    () => Number(localStorage.getItem("pp.leftWidth")) || 320
+    () => Number(localStorage.getItem("pp.leftWidth")) || 340
   );
   useEffect(() => {
     localStorage.setItem("pp.leftWidth", leftWidth);
@@ -58,10 +58,12 @@ export default function App() {
     }
   }, [showToast]);
 
+  const sc = useScene(showToast, refreshStatus);
+
   useEffect(() => {
     refreshStatus();
     refreshMedia();
-    const t = setInterval(refreshStatus, 4000); // keep status/music fresh
+    const t = setInterval(refreshStatus, 4000);
     return () => clearInterval(t);
   }, [refreshStatus, refreshMedia]);
 
@@ -96,6 +98,9 @@ export default function App() {
     );
   }
 
+  const dims = contentDims(status.matrix);
+  const mirrorActive = status.now_showing.source === "live";
+
   return (
     <div className="app">
       <header>
@@ -104,14 +109,25 @@ export default function App() {
         </h1>
         <StatusBar status={status} onChanged={refreshStatus} onToast={showToast} />
         <PowerWidget power={status.power} />
-        <button className="gear" title="Scene editor" onClick={() => setShowScene(true)}>
-          🎛
-        </button>
-        <button
-          className="gear"
-          title="Settings"
-          onClick={() => setShowSettings(true)}
-        >
+
+        <HeaderDropdown label="🎵 Music" title="Music sync" badge={status.music.enabled}>
+          <MusicPanel music={status.music} onChanged={refreshStatus} onToast={showToast} />
+        </HeaderDropdown>
+        {status.wled && (
+          <HeaderDropdown label="💡 WLED" title="WLED sync" badge={status.wled.enabled}>
+            <WledPanel
+              wled={status.wled}
+              onOpenSettings={() => setShowSettings(true)}
+              onChanged={refreshStatus}
+              onToast={showToast}
+            />
+          </HeaderDropdown>
+        )}
+        <HeaderDropdown label="🖥️ Mirror" title="Screen mirror" badge={mirrorActive}>
+          <ScreenMirror cols={dims.cols} rows={dims.rows} onChanged={refreshStatus} onToast={showToast} />
+        </HeaderDropdown>
+
+        <button className="gear" title="Settings" onClick={() => setShowSettings(true)}>
           ⚙
         </button>
       </header>
@@ -121,32 +137,14 @@ export default function App() {
           <Gallery
             items={items}
             selectedId={selectedId}
-            onSelect={setSelectedId}
+            onSelect={(id) => setSelectedId((cur) => (cur === id ? null : id))}
             onChanged={refreshMedia}
             onToast={showToast}
           />
-          <MusicPanel
-            music={status.music}
-            onChanged={refreshStatus}
-            onToast={showToast}
-          />
-          {status.wled && (
-            <WledPanel
-              wled={status.wled}
-              onOpenSettings={() => setShowSettings(true)}
-              onChanged={refreshStatus}
-              onToast={showToast}
-            />
-          )}
-          <ScreenMirror
-            cols={contentDims(status.matrix).cols}
-            rows={contentDims(status.matrix).rows}
-            onChanged={refreshStatus}
-            onToast={showToast}
-          />
+          <SceneControls sc={sc} cols={dims.cols} rows={dims.rows} media={items} />
         </aside>
 
-        <Resizer onDrag={(x) => setLeftWidth(clamp(x, 220, 520))} />
+        <Resizer onDrag={(x) => setLeftWidth(clamp(x, 240, 560))} />
 
         <section className="workspace">
           {selected ? (
@@ -154,16 +152,14 @@ export default function App() {
               key={selected.id}
               item={selected}
               pwmBits={status.matrix.pwm_bits}
-              panelAspect={contentDims(status.matrix).cols / contentDims(status.matrix).rows}
-              gridCols={contentDims(status.matrix).cols}
-              gridRows={contentDims(status.matrix).rows}
+              panelAspect={dims.cols / dims.rows}
+              gridCols={dims.cols}
+              gridRows={dims.rows}
               onPushed={refreshStatus}
               onToast={showToast}
             />
           ) : (
-            <div className="placeholder-pane">
-              <p>Select or upload an image / GIF to crop and push to the panel.</p>
-            </div>
+            <SceneCanvas sc={sc} cols={dims.cols} rows={dims.rows} />
           )}
         </section>
       </main>
@@ -172,17 +168,6 @@ export default function App() {
         <SettingsModal
           onClose={() => setShowSettings(false)}
           onSaved={refreshStatus}
-          onToast={showToast}
-        />
-      )}
-
-      {showScene && (
-        <SceneEditor
-          cols={contentDims(status.matrix).cols}
-          rows={contentDims(status.matrix).rows}
-          media={items}
-          onClose={() => setShowScene(false)}
-          onChanged={refreshStatus}
           onToast={showToast}
         />
       )}
