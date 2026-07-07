@@ -53,6 +53,9 @@ class MusicPoller:
         self._task: asyncio.Task | None = None
         self._error: str | None = None
         self._current = NowPlaying(playing=False)
+        # Raw album-art bytes for the current track, kept so a scene "music"
+        # widget can render the art independently of the fullscreen sync.
+        self._art_bytes: bytes | None = None
 
     # --- lifecycle ---
     async def start(self) -> None:
@@ -110,6 +113,13 @@ class MusicPoller:
             "error": self._error,
         }
 
+    # --- scene widget access ---
+    def now_playing(self) -> NowPlaying:
+        return self._current
+
+    def art_bytes(self) -> bytes | None:
+        return self._art_bytes
+
     # --- internals ---
     async def _loop(self) -> None:
         while True:
@@ -132,6 +142,7 @@ class MusicPoller:
 
         if not np.playing:
             # Stay in music mode (panel blank), don't reveal the custom image.
+            self._art_bytes = None
             if self._last_key is not None:
                 self._player.clear_music()
                 self._last_key = None
@@ -141,6 +152,7 @@ class MusicPoller:
             return  # same track already on the panel
 
         art = await self._resolve_art(np)
+        self._art_bytes = art  # feed the scene music widget (may be None)
         if art is None:
             log.debug("no art for %s", np.track_key)
             self._last_key = np.track_key  # don't retry every tick

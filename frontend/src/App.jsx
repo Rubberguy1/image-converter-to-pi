@@ -8,8 +8,10 @@ import StatusBar from "./components/StatusBar.jsx";
 import SettingsModal from "./components/SettingsModal.jsx";
 import SceneCanvas from "./components/SceneCanvas.jsx";
 import SceneControls from "./components/SceneControls.jsx";
+import SceneSidebar from "./components/SceneSidebar.jsx";
 import HeaderDropdown from "./components/HeaderDropdown.jsx";
 import PowerWidget from "./components/PowerWidget.jsx";
+import PerfBadge from "./components/PerfBadge.jsx";
 import Resizer, { clamp } from "./components/Resizer.jsx";
 import { useScene } from "./hooks/useScene.js";
 
@@ -27,6 +29,7 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [error, setError] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [fonts, setFonts] = useState([{ name: "5x7", height: 7 }]);
   const [leftWidth, setLeftWidth] = useState(
     () => Number(localStorage.getItem("pp.leftWidth")) || 340
   );
@@ -58,9 +61,24 @@ export default function App() {
 
   const sc = useScene(showToast, refreshStatus);
 
+  // Switch the (single) music source that feeds album-art music widgets.
+  const setMusicProvider = useCallback(
+    async (provider) => {
+      try {
+        await api.configureMusic(provider, provider !== "none");
+        await refreshStatus();
+        showToast(provider === "none" ? "Music source off" : `Music source: ${provider}`);
+      } catch (e) {
+        showToast(`Error: ${e.message}`, true);
+      }
+    },
+    [refreshStatus, showToast]
+  );
+
   useEffect(() => {
     refreshStatus();
     refreshMedia();
+    api.listFonts().then((r) => r.fonts?.length && setFonts(r.fonts)).catch(() => {});
     const t = setInterval(refreshStatus, 4000);
     return () => clearInterval(t);
   }, [refreshStatus, refreshMedia]);
@@ -96,6 +114,14 @@ export default function App() {
 
   const dims = contentDims(status.matrix);
   const mirrorActive = status.now_showing.source === "live";
+  const music = {
+    provider: status.music.provider,
+    enabled: status.music.enabled,
+    playing: status.music.playing,
+    artist: status.music.artist,
+    title: status.music.title,
+    setProvider: setMusicProvider,
+  };
 
   return (
     <div className="app">
@@ -105,6 +131,7 @@ export default function App() {
         </h1>
         <StatusBar status={status} onChanged={refreshStatus} onToast={showToast} />
         <PowerWidget power={status.power} />
+        <PerfBadge />
 
         <HeaderDropdown label="🎵 Music" title="Music sync" badge={status.music.enabled}>
           <MusicPanel music={status.music} onChanged={refreshStatus} onToast={showToast} />
@@ -139,14 +166,16 @@ export default function App() {
             onChanged={refreshMedia}
             onToast={showToast}
           />
-          <SceneControls sc={sc} cols={dims.cols} rows={dims.rows} media={items} />
+          <SceneControls sc={sc} cols={dims.cols} rows={dims.rows} media={items} music={music} fonts={fonts} />
         </aside>
 
         <Resizer onDrag={(x) => setLeftWidth(clamp(x, 240, 560))} />
 
         <section className="workspace">
-          <SceneCanvas sc={sc} cols={dims.cols} rows={dims.rows} />
+          <SceneCanvas sc={sc} cols={dims.cols} rows={dims.rows} music={music} media={items} />
         </section>
+
+        <SceneSidebar sc={sc} cols={dims.cols} rows={dims.rows} media={items} />
       </main>
 
       {showSettings && (

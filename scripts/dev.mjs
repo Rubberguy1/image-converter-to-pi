@@ -10,7 +10,7 @@
 // The individual pieces still run standalone the usual way (see README).
 
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, watch } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -29,7 +29,6 @@ const C = {
 const which = process.argv[2] || "all";
 const runBackend = which === "all" || which === "backend";
 const runFrontend = which === "all" || which === "frontend";
-const children = [];
 
 function fail(msg) {
   console.error(C.red("✗ " + msg));
@@ -52,6 +51,50 @@ function prefix(child, name, color) {
   }
 }
 
+// The backend (uvicorn on 8000) and the emulator's browser server (8888) are
+// frequently orphaned by a previous run — especially on Windows, where a hard
+// exit can leave the --reload worker or emulator alive holding the port. Kill
+// whatever is on those ports before starting so `dev` always gets a clean slate.
+const BACKEND_PORTS = [8000, 8888];
+
+function pidsOnPort(port) {
+  const pids = new Set();
+  try {
+    if (isWin) {
+      const out = spawnSync("netstat", ["-ano"], { encoding: "utf8" }).stdout || "";
+      for (const line of out.split("\n")) {
+        if (!/LISTENING/i.test(line)) continue;
+        const m = line.match(/:(\d+)\s+\S+\s+LISTENING\s+(\d+)/i);
+        if (m && Number(m[1]) === port) pids.add(m[2]);
+      }
+    } else {
+      const out = spawnSync("lsof", ["-ti", `tcp:${port}`], { encoding: "utf8" }).stdout || "";
+      for (const p of out.split(/\s+/)) if (p) pids.add(p);
+    }
+  } catch {
+    /* netstat/lsof unavailable — nothing we can do, just proceed */
+  }
+  return [...pids];
+}
+
+function freeBackendPorts() {
+  for (const port of BACKEND_PORTS) {
+    for (const pid of pidsOnPort(port)) {
+      if (String(pid) === String(process.pid) || pid === "0") continue;
+      console.log(C.dim(`· killing existing backend service on port ${port} (PID ${pid})`));
+      if (isWin) {
+        spawnSync("taskkill", ["/PID", pid, "/T", "/F"], { stdio: "ignore" });
+      } else {
+        try {
+          process.kill(Number(pid), "SIGKILL");
+        } catch {
+          /* already gone */
+        }
+      }
+    }
+  }
+}
+
 function startBackend() {
   const py = isWin
     ? join(BACKEND, ".venv", "Scripts", "python.exe")
@@ -65,15 +108,25 @@ function startBackend() {
           : "  python3 -m venv .venv && .venv/bin/pip install -r requirements.txt")
     );
   }
-  console.log(C.dim(`▶ backend  (emulator) → http://localhost:8000  panel → http://localhost:8888`));
-  const child = spawn(
-    py,
-    ["-m", "uvicorn", "app.main:app", "--reload", "--host", "0.0.0.0", "--port", "8000", "--loop", "asyncio"],
-    {
-      cwd: BACKEND,
-      env: { ...process.env, MATRIX_BACKEND: process.env.MATRIX_BACKEND || "emulator", PYTHONUNBUFFERED: "1" },
-    }
+  freeBackendPorts();
+  // NOTE: no --reload by default. The emulator starts a Tornado server thread
+  // and holds the matrix; uvicorn's in-place reload can't tear that down and
+  // hangs the worker forever on the first backend edit. Restarting `npm run dev`
+  // is clean (stale ports are killed above) and fast. Opt back in with
+  // PP_BACKEND_RELOAD=1 if you're only touching pure-API code and accept the risk.
+  const reload = process.env.PP_BACKEND_RELOAD === "1";
+  const args = ["-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--loop", "asyncio"];
+  if (reload) args.splice(3, 0, "--reload");
+  console.log(
+    C.dim(
+      `▶ backend  (emulator${reload ? ", --reload" : ""}) → http://localhost:8000  panel → http://localhost:8888` +
+        (reload ? "" : "  (edit backend? restart: Ctrl-C then npm run dev)")
+    )
   );
+  const child = spawn(py, args, {
+    cwd: BACKEND,
+    env: { ...process.env, MATRIX_BACKEND: process.env.MATRIX_BACKEND || "emulator", PYTHONUNBUFFERED: "1" },
+  });
   prefix(child, "backend", C.cyan);
   return child;
 }
@@ -90,16 +143,60 @@ function startFrontend() {
   return child;
 }
 
-if (runBackend) children.push(startBackend());
-if (runFrontend) children.push(startFrontend());
+// Backend is tracked separately so we can restart just it on a .py change.
+let backendChild = null;
+let frontendChild = null;
+let restartingBackend = false;
 
-// If any child exits, tear everything down.
-for (const child of children) {
+function attachExit(child, name) {
   child.on("exit", (code) => {
-    console.log(C.dim(`\n· a process exited (${code ?? "signal"}), shutting down…`));
+    if (shuttingDown) return;
+    if (name === "backend" && restartingBackend) return; // expected during restart
+    console.log(C.dim(`\n· ${name} exited (${code ?? "signal"}), shutting down…`));
     shutdown();
   });
 }
+
+if (runBackend) {
+  backendChild = startBackend();
+  attachExit(backendChild, "backend");
+}
+if (runFrontend) {
+  frontendChild = startFrontend();
+  attachExit(frontendChild, "frontend");
+}
+
+// Full kill+respawn of the backend on code changes. uvicorn's in-place --reload
+// hangs because the emulator's server/threads can't tear down mid-process, so we
+// restart the whole process instead (freeBackendPorts clears 8000/8888 first).
+function restartBackend() {
+  if (!backendChild || shuttingDown || restartingBackend) return;
+  restartingBackend = true;
+  console.log(C.cyan("\n↻ backend change — restarting…"));
+  killTree(backendChild);
+  setTimeout(() => {
+    backendChild = startBackend();
+    attachExit(backendChild, "backend");
+    restartingBackend = false;
+  }, 500);
+}
+
+function watchBackend() {
+  const dir = join(BACKEND, "app");
+  let timer = null;
+  try {
+    watch(dir, { recursive: true }, (_evt, file) => {
+      if (!file || !String(file).endsWith(".py")) return;
+      clearTimeout(timer);
+      timer = setTimeout(restartBackend, 300);
+    });
+    console.log(C.dim("· watching backend/app for .py changes (auto-restart)"));
+  } catch (e) {
+    console.log(C.dim(`· backend watch unavailable (${e.message}); edit → restart manually`));
+  }
+}
+
+if (runBackend) watchBackend();
 
 function killTree(child) {
   if (!child || child.killed) return;
@@ -120,7 +217,7 @@ let shuttingDown = false;
 function shutdown() {
   if (shuttingDown) return;
   shuttingDown = true;
-  for (const child of children) killTree(child);
+  for (const child of [backendChild, frontendChild]) killTree(child);
   process.exit(0);
 }
 

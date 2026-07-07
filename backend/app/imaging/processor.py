@@ -61,11 +61,14 @@ class RenderOptions:
     # Nearest-neighbour resampling instead of Lanczos — keeps pixel art crisp
     # (no smoothing/blur) at the cost of smoothness for photos.
     nearest: bool = False
-    # Pixel-lock: a panel-sized window into the source, in SOURCE pixels
-    # (x, y, w, h). x/y may be negative or extend beyond the source so the source
-    # can be positioned anywhere on the panel (1:1, no scaling). Overrides
-    # crop/fit when set.
+    # Pixel-lock / viewport: a target-sized window into the source, in
+    # (zoom-scaled) SOURCE pixels (x, y, w, h). x/y may be negative or extend
+    # beyond the source so the source can be positioned anywhere on the panel
+    # (1:1, no scaling). Overrides crop/fit when set.
     window: tuple[int, int, int, int] | None = None
+    # Integer pre-scale (NEAREST) applied to the source before the window blit —
+    # so a viewport can show the image at 2x, 3x… crisp. 1 = native.
+    zoom: int = 1
     max_frames: int = 256  # safety cap for huge GIFs
 
     @property
@@ -140,6 +143,8 @@ def _window_blit(img: Image.Image, opts: RenderOptions) -> Image.Image:
     """Place a panel-sized window of the source onto a black panel at 1:1, at the
     exact position given by the window (which may sit partly off the source, so
     the source can be positioned anywhere on the panel)."""
+    if opts.zoom > 1:
+        img = img.resize((img.width * opts.zoom, img.height * opts.zoom), Image.NEAREST)
     wx, wy, ww, wh = opts.window
     tw, th = opts.target_width, opts.target_height
     canvas = Image.new("RGB", (tw, th), opts.background)

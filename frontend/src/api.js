@@ -121,6 +121,37 @@ export const api = {
     return URL.createObjectURL(await resp.blob());
   },
 
+  perf: () => fetch("/api/perf").then(jsonOrThrow),
+
+  listFonts: () => fetch("/api/fonts").then(jsonOrThrow),
+
+  listScenes: () => fetch("/api/scenes").then(jsonOrThrow),
+  saveNamedScene: (name) =>
+    fetch("/api/scenes/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    }).then(jsonOrThrow),
+  loadNamedScene: (name) =>
+    fetch("/api/scenes/load", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    }).then(jsonOrThrow),
+  deleteNamedScene: (name) =>
+    fetch(`/api/scenes/${encodeURIComponent(name)}`, { method: "DELETE" }).then(jsonOrThrow),
+
+  // Preview an image widget's tile at w×h with the given render settings.
+  mediaTilePreviewUrl: async (id, settings, w, h) => {
+    const resp = await fetch(`/api/media/${id}/preview?w=${w}&h=${h}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(settings),
+    });
+    if (!resp.ok) throw new Error("preview failed");
+    return URL.createObjectURL(await resp.blob());
+  },
+
   originalUrl: (id) => `/api/media/${id}/original`,
   thumbUrl: (id) => `/api/media/${id}/thumb`,
 };

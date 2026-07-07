@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import io
 import logging
+import time
 
 from fastapi import (
     APIRouter,
@@ -19,7 +20,7 @@ from pydantic import BaseModel, Field
 
 log = logging.getLogger(__name__)
 
-from .. import power, settings_store
+from .. import perf, power, settings_store
 from ..config import settings
 from ..display import Player
 from ..imaging import Frame, render_to_frames, simulate_bit_depth
@@ -228,14 +229,22 @@ async def media_original(req: Request, media_id: str):
 
 
 @router.post("/media/{media_id}/preview")
-async def media_preview(req: Request, media_id: str, body: SettingsIn):
-    """Render at panel size with the given settings so the UI can preview exactly
-    how it will look before pushing it. Animated sources return an animated GIF
-    (so the preview plays); static sources return a PNG."""
+async def media_preview(
+    req: Request,
+    media_id: str,
+    body: SettingsIn,
+    w: int | None = None,
+    h: int | None = None,
+):
+    """Render with the given settings so the UI can preview it. Defaults to the
+    panel size (with colour-depth simulation); pass w/h to render at an arbitrary
+    tile size (e.g. an image widget's box within a scene)."""
     item = _require(req, media_id)
-    opts = body.to_render_settings().to_options(*settings.content_size)
+    tile = bool(w and h)
+    target = (w, h) if tile else settings.content_size
+    opts = body.to_render_settings().to_options(*target)
     frames = render_to_frames(item.original_path, opts)
-    return _frames_response(_simulate_panel(frames))
+    return _frames_response(frames if tile else _simulate_panel(frames))
 
 
 @router.put("/media/{media_id}/settings")
@@ -462,6 +471,53 @@ async def push_scene_value(req: Request, body: SceneValueIn):
     return {"ok": True}
 
 
+class SceneNameIn(BaseModel):
+    name: str
+
+
+@router.get("/scenes")
+async def list_named_scenes(req: Request):
+    from ..scene import list_scenes
+
+    return {"scenes": list_scenes()}
+
+
+@router.get("/fonts")
+async def list_fonts(req: Request):
+    """Available widget fonts (built-in + any dropped into app/scene/fonts/).
+    Each entry's `height` lets the editor size the text box to the real, integer-
+    scaled render height."""
+    from ..scene import font_list
+
+    return {"fonts": font_list()}
+
+
+@router.post("/scenes/save")
+async def save_named_scene(req: Request, body: SceneNameIn):
+    from ..scene import save_named
+
+    saved = save_named(body.name, _scene(req).scene)
+    return {"ok": True, "name": saved}
+
+
+@router.post("/scenes/load")
+async def load_named_scene(req: Request, body: SceneNameIn):
+    from ..scene import load_named
+
+    scene = load_named(body.name)
+    if scene is None:
+        raise HTTPException(404, "scene not found")
+    _scene(req).set_scene(scene)
+    return {"scene": scene.to_json(), "status": _scene(req).status()}
+
+
+@router.delete("/scenes/{name}")
+async def delete_named_scene(req: Request, name: str):
+    from ..scene import delete_named
+
+    return {"ok": delete_named(name)}
+
+
 @router.post("/scene/preview")
 async def scene_preview(req: Request, body: dict):
     """Render a (possibly unsaved) scene to a PNG for the editor's live preview."""
@@ -472,11 +528,24 @@ async def scene_preview(req: Request, body: dict):
         scene = Scene.from_json(body)
     except Exception as exc:
         raise HTTPException(400, f"invalid scene: {exc}")
+    t0 = time.perf_counter()
     img = runner.render(scene)
     buf = io.BytesIO()
     img.save(buf, format="PNG")
+    perf.preview.add((time.perf_counter() - t0) * 1000.0)
     return Response(buf.getvalue(), media_type="image/png",
                     headers={"Cache-Control": "no-store"})
+
+
+@router.get("/perf")
+async def perf_metrics(req: Request):
+    """Live performance metrics — composite/preview timings, CPU%, load average.
+    Watch this with a scene running to see the real load (on the Pi, load_avg is
+    the key signal: 1.0 per fully-busy core, so ~4.0 saturates a Pi's 4 cores)."""
+    snap = perf.snapshot()
+    snap["matrix_backend"] = req.app.state.matrix.backend
+    snap["scene_enabled"] = _scene(req).scene.enabled
+    return snap
 
 
 # --- overall status ---

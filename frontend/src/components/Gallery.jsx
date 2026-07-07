@@ -10,13 +10,11 @@ export default function Gallery({ items, onAddImage, onChanged, onToast }) {
     if (!files || !files.length) return;
     setUploading(true);
     try {
-      let last = null;
       for (const file of files) {
-        last = await api.upload(file);
+        await api.upload(file);
       }
       onToast(`Uploaded ${files.length} file(s)`);
       onChanged();
-      if (last) onSelect(last.id);
     } catch (e) {
       onToast(`Upload failed: ${e.message}`, true);
     } finally {

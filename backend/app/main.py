@@ -43,7 +43,13 @@ log = logging.getLogger("pixelpusher")
 async def lifespan(app: FastAPI):
     # Apply any UI-saved credentials over the env defaults before pollers start.
     settings_store.load_and_apply()
-    matrix = create_matrix()
+    # Build the matrix OFF the main event loop. The emulator's browser adapter
+    # starts a Tornado server bound to `IOLoop.current()` when its first canvas
+    # is created; on the main thread that is uvicorn's already-running loop, and
+    # its server thread would crash with "This event loop is already running".
+    # In a worker thread it gets its own fresh loop, as the emulator intends.
+    # (No-op difference on the Pi — hardware init doesn't touch asyncio.)
+    matrix = await asyncio.to_thread(create_matrix)
     player = Player(matrix)
     player.start()
     library = LibraryStore()
@@ -51,7 +57,7 @@ async def lifespan(app: FastAPI):
     await poller.start()
     wled = WledSync(player, settings)
     await wled.start()
-    scene = SceneRunner(player, library, settings)
+    scene = SceneRunner(player, library, settings, music=poller)
     await scene.start()
 
     app.state.matrix = matrix
