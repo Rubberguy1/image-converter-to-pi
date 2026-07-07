@@ -13,7 +13,14 @@ from PIL import Image, ImageDraw
 from .. import perf
 from ..config import Settings
 from ..display import Player
-from ..imaging import RenderOptions, SpinOptions, render_disc_frames, render_to_frames
+from ..imaging import (
+    RenderOptions,
+    SpinOptions,
+    decode_source,
+    process_frame,
+    render_disc_frames,
+    render_to_frames,
+)
 from ..library import LibraryStore
 from ..library.store import RenderSettings
 from .model import Scene, load_scene, save_scene
@@ -72,6 +79,9 @@ class SceneRunner:
         # Rendered media frames keyed by (media_id, w, h, fit) — shared by the
         # background and image widgets.
         self._media_cache: dict[tuple, tuple] = {}
+        # Decoded (downscaled) source frames keyed by (media_id, max_side) so
+        # editing never re-decodes the original file — decode once, re-render cheap.
+        self._source_cache: dict[tuple, tuple] = {}
         # Rendered album-art tiles keyed by (track_key, w, h, fit).
         self._music_cache: dict[tuple, Image.Image] = {}
         # The compositor ticks as fast as the fastest on-screen animation needs
@@ -387,21 +397,44 @@ class SceneRunner:
         if len(self._music_cache) > 8:
             self._music_cache.pop(next(iter(self._music_cache)))
 
-    def _media_frame(self, media_id: str, opts: RenderOptions, key: tuple):
-        """Current frame (animation cycles by wall-clock) of a media item rendered
-        with `opts`. Cached across ticks; shared by background + image widgets."""
-        cached = self._media_cache.get(key)
+    def _source_frames(self, media_id: str, max_side):
+        """Decoded (and downscaled) source frames for a media item, cached per
+        (media_id, max_side) so editing never re-decodes the original — the
+        expensive step happens once, then re-renders are cheap."""
+        ck = (media_id, max_side)
+        cached = self._source_cache.get(ck)
         if cached is None:
             item = self._library.get(media_id)
             if not item:
                 return None
             try:
-                frames = render_to_frames(item.original_path, opts)
+                frames = decode_source(item.original_path, max_side)
+            except Exception:
+                log.exception("scene media decode failed")
+                return None
+            cached = ([im for im, _ in frames], [d for _, d in frames])
+            if len(self._source_cache) > 6:  # decoded frames are bigger — bound tighter
+                self._source_cache.pop(next(iter(self._source_cache)))
+            self._source_cache[ck] = cached
+        return cached
+
+    def _media_frame(self, media_id: str, opts: RenderOptions, key: tuple):
+        """Current frame (animation cycles by wall-clock) of a media item rendered
+        with `opts`. Cached across ticks; shared by background + image widgets."""
+        cached = self._media_cache.get(key)
+        if cached is None:
+            # Viewport (window) modes need native pixels; fit modes only ever
+            # shrink to the tile, so a working-size cap keeps decode/render cheap.
+            max_side = None if opts.window is not None else 512
+            src = self._source_frames(media_id, max_side)
+            if not src:
+                return None
+            src_images, durations = src
+            try:
+                images = [process_frame(im, opts) for im in src_images]
             except Exception:
                 log.exception("scene media render failed")
                 return None
-            images = [f.image for f in frames]
-            durations = [f.duration_ms for f in frames]
             cached = (images, durations, sum(durations) or 100)
             if len(self._media_cache) > 16:  # bound the cache
                 self._media_cache.pop(next(iter(self._media_cache)))

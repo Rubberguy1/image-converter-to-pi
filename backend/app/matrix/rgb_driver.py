@@ -8,6 +8,7 @@ classes. We pick which module to import based on configuration / availability.
 from __future__ import annotations
 
 import importlib
+import os
 import threading
 
 from PIL import Image
@@ -57,6 +58,10 @@ class RGBMatrixDriver(MatrixDisplay):
             options.pwm_bits = settings.matrix_pwm_bits
             options.pwm_lsb_nanoseconds = settings.matrix_pwm_lsb_nanoseconds
             options.limit_refresh_rate_hz = settings.matrix_limit_refresh_rate_hz
+            # Diagnostic: MATRIX_SHOW_REFRESH=1 makes the library print the live
+            # refresh rate (Hz) to the log so you can see the real panel timing.
+            if os.environ.get("MATRIX_SHOW_REFRESH", "").lower() in ("1", "true", "yes"):
+                options.show_refresh_rate = True
             # Panel-specific quirks (FM6126A chips, multiplexing, row addressing).
             if settings.matrix_panel_type:
                 options.panel_type = settings.matrix_panel_type

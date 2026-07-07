@@ -180,16 +180,29 @@ def _process_single(img: Image.Image, opts: RenderOptions) -> Image.Image:
 
 
 def _iter_coalesced(src: Image.Image):
-    """Yield (full_rgba_frame, duration_ms) for an animated image, compositing
-    partial frames onto the running canvas so GIF disposal methods render
-    correctly."""
+    """Yield (full_rgb_frame, duration_ms) for an animated image, compositing
+    partial frames onto a running canvas AND honoring each frame's disposal
+    method — otherwise disposal-2 ("restore to background") GIFs leave ghost
+    frames piled on top of each other."""
     canvas = Image.new("RGBA", src.size, (0, 0, 0, 0))
     for frame in ImageSequence.Iterator(src):
         duration = int(frame.info.get("duration", _DEFAULT_FRAME_MS) or _DEFAULT_FRAME_MS)
-        rgba = frame.convert("RGBA")
-        canvas = canvas.copy()
-        canvas.alpha_composite(rgba)
-        yield canvas.convert("RGB"), max(_MIN_FRAME_MS, duration)
+        disposal = getattr(frame, "disposal_method", None)
+        if disposal is None:
+            disposal = frame.info.get("disposal", 0)
+
+        prev = canvas.copy() if disposal == 3 else None  # for "restore to previous"
+        working = canvas.copy()
+        working.alpha_composite(frame.convert("RGBA"))
+        yield working.convert("RGB"), max(_MIN_FRAME_MS, duration)
+
+        # Apply this frame's disposal to prepare the canvas for the next frame.
+        if disposal == 2:      # restore to background — clear so nothing ghosts
+            canvas = Image.new("RGBA", src.size, (0, 0, 0, 0))
+        elif disposal == 3 and prev is not None:  # restore to previous
+            canvas = prev
+        else:                  # 0/1: leave this frame in place
+            canvas = working
 
 
 Source = Union[Path, str, bytes, bytearray]
@@ -218,6 +231,43 @@ def render_to_frames(source: Source, opts: RenderOptions) -> list[Frame]:
             if len(frames) >= opts.max_frames:
                 break
         return frames
+
+
+def _cap(img: Image.Image, max_side: int | None) -> Image.Image:
+    if not max_side:
+        return img
+    longest = max(img.width, img.height)
+    if longest <= max_side:
+        return img
+    s = max_side / longest
+    return img.resize((max(1, round(img.width * s)), max(1, round(img.height * s))), Image.LANCZOS)
+
+
+def decode_source(source: Source, max_side: int | None = None, max_frames: int = 256):
+    """Decode a source ONCE to RGB frames, downscaled so the longest side <=
+    max_side. Returns [(image, duration_ms)]. This is the expensive step (JPEG
+    decode + downscale), so callers cache the result and re-render cheaply via
+    process_frame(). For JPEGs a draft decode makes the downscale much faster."""
+    with _open(source) as img:
+        if max_side:
+            try:
+                img.draft("RGB", (max_side, max_side))  # fast reduced-res JPEG decode
+            except Exception:
+                pass
+        is_animated = getattr(img, "is_animated", False) and getattr(img, "n_frames", 1) > 1
+        if not is_animated:
+            return [(_cap(img.convert("RGB"), max_side), _DEFAULT_FRAME_MS)]
+        out = []
+        for raw, duration in _iter_coalesced(img):
+            out.append((_cap(raw, max_side), duration))
+            if len(out) >= max_frames:
+                break
+        return out
+
+
+def process_frame(img: Image.Image, opts: RenderOptions) -> Image.Image:
+    """Apply fit/window/colour to an already-decoded frame (cheap)."""
+    return _process_single(img, opts)
 
 
 @dataclass
