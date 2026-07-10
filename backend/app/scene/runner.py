@@ -14,6 +14,7 @@ from .. import perf
 from ..config import Settings
 from ..display import Player
 from ..imaging import (
+    Frame,
     RenderOptions,
     SpinOptions,
     decode_source,
@@ -82,6 +83,7 @@ class SceneRunner:
         # Decoded (downscaled) source frames keyed by (media_id, max_side) so
         # editing never re-decodes the original file — decode once, re-render cheap.
         self._source_cache: dict[tuple, tuple] = {}
+        self._anim_total = 0  # longest animation loop (ms) seen in the last render
         # Rendered album-art tiles keyed by (track_key, w, h, fit).
         self._music_cache: dict[tuple, Image.Image] = {}
         # The compositor ticks as fast as the fastest on-screen animation needs
@@ -201,19 +203,20 @@ class SceneRunner:
         self._min_frame_ms = None
         return self.render(self.scene)
 
-    def render(self, scene: Scene) -> Image.Image:
-        """Composite any scene at the panel content size (used live + for preview)."""
+    def render(self, scene: Scene, at_ms: float | None = None) -> Image.Image:
+        """Composite any scene at the panel content size (used live + for preview).
+        `at_ms` overrides the animation clock so a whole loop can be rendered."""
         cw, ch = self._settings.content_size
-        base = self._background(scene.background, cw, ch)
+        base = self._background(scene.background, cw, ch, at_ms)
         ctx = {"weather": self._weather, "values": self._values}
         for widget in scene.widgets:
             if getattr(widget, "hidden", False):
                 continue
             try:
                 if widget.type == "image":
-                    self._draw_image(base, widget)
+                    self._draw_image(base, widget, at_ms)
                 elif widget.type == "music":
-                    self._draw_music(base, widget)
+                    self._draw_music(base, widget, at_ms)
                 elif widget.type == "nowplaying":
                     self._draw_nowplaying(base, widget, cw, ch)
                 else:
@@ -222,17 +225,33 @@ class SceneRunner:
                 log.debug("widget %s draw failed", widget.id, exc_info=True)
         return base
 
-    def _background(self, bg, cw: int, ch: int) -> Image.Image:
+    def render_animation(self, scene: Scene, max_frames: int = 60, max_ms: int = 6000):
+        """Render one full animation loop of the scene as a list of Frames (for a
+        natively-playing animated-GIF preview). Returns a single frame if nothing
+        in the scene animates."""
+        self._anim_total = 0
+        self._min_frame_ms = None
+        first = self.render(scene, at_ms=0)  # probe: fills caches + animation stats
+        if not self._anim_total or not self._min_frame_ms:
+            return [Frame(first)]
+        period = min(self._anim_total, max_ms)
+        # honor native frame duration, but cap the frame count for a light preview
+        step = max(self._min_frame_ms, 30.0, period / max_frames)
+        n = max(1, min(max_frames, round(period / step)))
+        step = period / n
+        return [Frame(self.render(scene, at_ms=round(i * step)), round(step)) for i in range(n)]
+
+    def _background(self, bg, cw: int, ch: int, at_ms=None) -> Image.Image:
         if bg.type == "color":
             return Image.new("RGB", (cw, ch), hex_rgb(bg.color))
         if bg.type == "media" and bg.media_id:
             opts = RenderOptions(cw, ch, fit=bg.fit)
-            frame = self._media_frame(bg.media_id, opts, (bg.media_id, cw, ch, bg.fit, "bg"))
+            frame = self._media_frame(bg.media_id, opts, (bg.media_id, cw, ch, bg.fit, "bg"), at_ms)
             if frame is not None:
                 return frame.copy()
         return Image.new("RGB", (cw, ch), (0, 0, 0))
 
-    def _draw_image(self, base: Image.Image, widget) -> None:
+    def _draw_image(self, base: Image.Image, widget, at_ms=None) -> None:
         cfg = widget.config
         mid = cfg.get("media_id")
         w = int(cfg.get("w") or 0)
@@ -266,11 +285,11 @@ class SceneRunner:
                 nearest=bool(cfg.get("nearest", False)),
                 window=cfg.get("window"),
             ).to_options(w, h)
-        frame = self._media_frame(mid, opts, (mid, w, h, _opts_key(cfg)))
+        frame = self._media_frame(mid, opts, (mid, w, h, _opts_key(cfg)), at_ms)
         if frame is not None:
             base.paste(frame, (int(widget.x), int(widget.y)))
 
-    def _draw_music(self, base: Image.Image, widget) -> None:
+    def _draw_music(self, base: Image.Image, widget, at_ms=None) -> None:
         """Current track's album art as a placeable, resizable tile — either a
         static square or a spinning disc. Text lives in its own widget."""
         cfg = widget.config
@@ -287,7 +306,7 @@ class SceneRunner:
 
         if art and playing:
             if disc:
-                frame = self._music_disc_frame(art, w, h, np.track_key)
+                frame = self._music_disc_frame(art, w, h, np.track_key, at_ms)
                 if frame is not None:
                     base.paste(frame, (x, y), self._disc_paste_mask(w, h))
                     return
@@ -342,7 +361,7 @@ class SceneRunner:
             self._music_cache[key] = tile
         return tile
 
-    def _music_disc_frame(self, art: bytes, w: int, h: int, track_key):
+    def _music_disc_frame(self, art: bytes, w: int, h: int, track_key, at_ms=None):
         """Current frame of the spinning-disc album art (animates by wall-clock)."""
         key = (track_key, w, h, "disc")
         cached = self._music_cache.get(key)
@@ -367,7 +386,8 @@ class SceneRunner:
         positive = [d for d in durations if d and d > 0]
         mn = min(positive) if positive else 100
         self._min_frame_ms = mn if self._min_frame_ms is None else min(self._min_frame_ms, mn)
-        t = (time.monotonic() * 1000) % total
+        self._anim_total = max(self._anim_total, total)
+        t = (at_ms if at_ms is not None else time.monotonic() * 1000) % total
         acc = 0
         for i, d in enumerate(durations):
             acc += d
@@ -418,9 +438,9 @@ class SceneRunner:
             self._source_cache[ck] = cached
         return cached
 
-    def _media_frame(self, media_id: str, opts: RenderOptions, key: tuple):
-        """Current frame (animation cycles by wall-clock) of a media item rendered
-        with `opts`. Cached across ticks; shared by background + image widgets."""
+    def _media_frame(self, media_id: str, opts: RenderOptions, key: tuple, at_ms=None):
+        """Current frame (animation cycles by wall-clock, or `at_ms` when given) of
+        a media item rendered with `opts`. Cached; shared by bg + image widgets."""
         cached = self._media_cache.get(key)
         if cached is None:
             # Viewport (window) modes need native pixels; fit modes only ever
@@ -446,7 +466,8 @@ class SceneRunner:
         positive = [d for d in durations if d and d > 0]
         mn = min(positive) if positive else 100
         self._min_frame_ms = mn if self._min_frame_ms is None else min(self._min_frame_ms, mn)
-        t = (time.monotonic() * 1000) % total
+        self._anim_total = max(self._anim_total, total)
+        t = (at_ms if at_ms is not None else time.monotonic() * 1000) % total
         acc = 0
         for i, d in enumerate(durations):
             acc += d

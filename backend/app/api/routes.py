@@ -520,7 +520,9 @@ async def delete_named_scene(req: Request, name: str):
 
 @router.post("/scene/preview")
 async def scene_preview(req: Request, body: dict):
-    """Render a (possibly unsaved) scene to a PNG for the editor's live preview."""
+    """Render a (possibly unsaved) scene for the editor's live preview. Returns an
+    animated GIF (playing the scene's animation loop natively in the browser) when
+    anything animates, otherwise a static PNG."""
     from ..scene import Scene
 
     runner = _scene(req)
@@ -529,12 +531,10 @@ async def scene_preview(req: Request, body: dict):
     except Exception as exc:
         raise HTTPException(400, f"invalid scene: {exc}")
     t0 = time.perf_counter()
-    img = runner.render(scene)
-    buf = io.BytesIO()
-    img.save(buf, format="PNG")
+    resp = _frames_response(runner.render_animation(scene))
     perf.preview.add((time.perf_counter() - t0) * 1000.0)
-    return Response(buf.getvalue(), media_type="image/png",
-                    headers={"Cache-Control": "no-store"})
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
 
 
 @router.get("/perf")

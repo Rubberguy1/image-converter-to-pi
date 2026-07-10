@@ -59,7 +59,7 @@ export default function App() {
     }
   }, [showToast]);
 
-  const sc = useScene(showToast, refreshStatus);
+  const sc = useScene(showToast, refreshStatus, items);
 
   // Switch the (single) music source that feeds album-art music widgets.
   const setMusicProvider = useCallback(

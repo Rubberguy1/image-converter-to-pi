@@ -58,7 +58,7 @@ export function newWidget(type, cols, rows) {
 }
 
 // Shared scene state so the canvas (center) and controls (left pane) stay in sync.
-export function useScene(onToast, onChanged) {
+export function useScene(onToast, onChanged, media = []) {
   const [scene, setScene] = useState(DEFAULT_SCENE);
   const [selId, setSelId] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -94,14 +94,20 @@ export function useScene(onToast, onChanged) {
     return () => clearTimeout(timer.current);
   }, [scene, fetchPreview]);
 
-  // Live widgets (album art, clock, weather, pushed values) change on their own,
-  // so keep re-rendering the preview on a timer while any are present.
+  // When the scene contains animated media (a GIF, or a spinning disc), the
+  // preview is an animated GIF that plays itself — polling would restart it every
+  // second, so don't. Only poll for non-animated live widgets (a ticking clock).
+  const animatedIds = new Set((media || []).filter((m) => m.animated).map((m) => m.id));
+  const usesAnimated =
+    (scene.background?.type === "media" && animatedIds.has(scene.background.media_id)) ||
+    scene.widgets.some((w) => w.type === "image" && animatedIds.has(w.config?.media_id)) ||
+    scene.widgets.some((w) => w.type === "music" && w.config?.disc);
   const hasLive = scene.widgets.some((w) => LIVE_TYPES.has(w.type));
   useEffect(() => {
-    if (!hasLive) return undefined;
+    if (!hasLive || usesAnimated) return undefined;
     const id = setInterval(fetchPreview, 1000);
     return () => clearInterval(id);
-  }, [hasLive, fetchPreview]);
+  }, [hasLive, usesAnimated, fetchPreview]);
 
   return {
     scene,
