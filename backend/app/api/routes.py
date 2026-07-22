@@ -92,6 +92,10 @@ class SettingsUpdate(BaseModel):
     matrix_panel_cols: int | None = Field(None, ge=8, le=128)
     matrix_panel_rows: int | None = Field(None, ge=8, le=128)
     matrix_orientation: int | None = None  # 0/90/180/270
+    # Multi-panel wiring + per-panel order/rotation.
+    matrix_chain_length: int | None = Field(None, ge=0, le=32)
+    matrix_parallel: int | None = Field(None, ge=0, le=3)
+    matrix_panel_map: list | None = None
     matrix_panel_type: str | None = None
     matrix_gpio_slowdown: int | None = Field(None, ge=0, le=6)
     matrix_hardware_mapping: str | None = None

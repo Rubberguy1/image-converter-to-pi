@@ -105,15 +105,21 @@ class Settings(BaseSettings):
 
     @property
     def parallel_chains(self) -> int:
-        """Physical parallel outputs used (HAT connectors)."""
-        return max(1, self.matrix_parallel or 1)
+        """Physical parallel outputs used (HAT connectors). Defaults to the wall's
+        row count — the common wiring (one chain per row) and the old behaviour, so
+        existing walls keep working. Override with matrix_parallel if wired
+        differently."""
+        return max(1, self.matrix_parallel or self.matrix_panels_tall)
 
     @property
     def chain_length(self) -> int:
-        """Physical daisy-chain length (panels per output)."""
+        """Physical daisy-chain length (panels per output). Defaults to the wall's
+        column count (one chain per row)."""
         if self.matrix_chain_length:
             return max(1, self.matrix_chain_length)
-        return max(1, self.total_panels // self.parallel_chains)
+        if self.matrix_parallel:  # parallel set explicitly → derive chain from it
+            return max(1, self.total_panels // max(1, self.matrix_parallel))
+        return max(1, self.matrix_panels_wide)
 
     @property
     def physical_size(self) -> tuple[int, int]:
