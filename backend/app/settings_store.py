@@ -29,6 +29,9 @@ EDITABLE: dict[str, bool] = {
     "matrix_panel_cols": False,
     "matrix_panel_rows": False,
     "matrix_orientation": False,
+    "matrix_chain_length": False,
+    "matrix_parallel": False,
+    "matrix_panel_map": False,  # per-panel order + rotation; applied live
     "matrix_panel_type": False,
     "matrix_gpio_slowdown": False,
     "matrix_hardware_mapping": False,
@@ -67,6 +70,8 @@ RESTART_FIELDS = {
     "matrix_pwm_bits",
     "matrix_pwm_lsb_nanoseconds",
     "matrix_limit_refresh_rate_hz",
+    "matrix_chain_length",
+    "matrix_parallel",
 }
 
 

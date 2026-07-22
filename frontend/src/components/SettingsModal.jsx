@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { api } from "../api.js";
+import PanelLayout from "./PanelLayout.jsx";
 
 // Secret fields are write-only: the backend never returns their value, only a
 // "<field>_set" flag. Leaving one blank keeps the existing value.
@@ -26,7 +27,18 @@ const TABS = [
               { value: 180, label: "180° (upside down)" },
               { value: 270, label: "270°" },
             ],
+            hint: "Single-panel rotation. For multi-panel walls use the per-panel layout below.",
           },
+        ],
+      },
+      {
+        title: "Wiring (multi-panel)",
+        hint: "How the panels are cabled to the HAT. total = chain × parallel must equal your panel count. 0 = auto (single chain).",
+        fields: [
+          { key: "matrix_parallel", label: "Parallel outputs", type: "number", min: 0, max: 3,
+            hint: "Separate output connectors on the HAT/bonnet used (1–3). 0 = auto (1)." },
+          { key: "matrix_chain_length", label: "Chain length", type: "number", min: 0, max: 16,
+            hint: "Panels daisy-chained per output. 0 = auto (panel count ÷ parallel)." },
         ],
       },
       {
@@ -154,6 +166,8 @@ export default function SettingsModal({ onClose, onSaved, onToast }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [restartNote, setRestartNote] = useState(false);
+  const [panelMap, setPanelMap] = useState([]);
+  const [identifying, setIdentifying] = useState(false);
 
   useEffect(() => {
     api
@@ -165,9 +179,22 @@ export default function SettingsModal({ onClose, onSaved, onToast }) {
           initial[f.key] = f.type === "secret" ? "" : s[f.key] ?? "";
         }
         setForm(initial);
+        setPanelMap(Array.isArray(s.matrix_panel_map) ? s.matrix_panel_map : []);
       })
       .catch((e) => setError(e.message));
   }, []);
+
+  // Make sure identify is turned off when the settings modal closes.
+  useEffect(() => {
+    return () => {
+      api.identifyPanels(false).catch(() => {});
+    };
+  }, []);
+
+  const toggleIdentify = (on) => {
+    setIdentifying(on);
+    api.identifyPanels(on).catch((e) => onToast(`Error: ${e.message}`, true));
+  };
 
   const setField = (key, value) => setForm((f) => ({ ...f, [key]: value }));
 
@@ -193,6 +220,7 @@ export default function SettingsModal({ onClose, onSaved, onToast }) {
           payload[f.key] = val;
         }
       }
+      payload.matrix_panel_map = panelMap;
       const res = await api.updateSettings(payload);
       onToast("Settings saved");
       onSaved && onSaved();
@@ -212,7 +240,7 @@ export default function SettingsModal({ onClose, onSaved, onToast }) {
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal settings-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
           <h2>Settings</h2>
           <button className="modal-x" onClick={onClose}>×</button>
@@ -257,6 +285,17 @@ export default function SettingsModal({ onClose, onSaved, onToast }) {
                 ))}
               </div>
             ))}
+
+            {tab === "panel" && resolution.panels > 1 && (
+              <PanelLayout
+                cols={Number(form.matrix_panels_wide || 1)}
+                rows={Number(form.matrix_panels_tall || 1)}
+                map={panelMap}
+                onChange={setPanelMap}
+                identifying={identifying}
+                onIdentify={toggleIdentify}
+              />
+            )}
           </div>
         )}
 

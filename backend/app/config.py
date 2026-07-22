@@ -24,9 +24,19 @@ class Settings(BaseSettings):
     # panels_tall of them. Total resolution is derived from these.
     matrix_panel_cols: int = 64   # per-panel width in pixels
     matrix_panel_rows: int = 64   # per-panel height in pixels
-    matrix_panels_wide: int = 1   # panels left-to-right  (rgbmatrix chain length)
-    matrix_panels_tall: int = 1   # panels top-to-bottom  (rgbmatrix parallel chains)
-    matrix_orientation: int = 0   # display rotation: 0, 90, 180, or 270 degrees
+    matrix_panels_wide: int = 1   # LOGICAL wall: panels left-to-right
+    matrix_panels_tall: int = 1   # LOGICAL wall: panels top-to-bottom
+    matrix_orientation: int = 0   # single-panel display rotation: 0/90/180/270
+
+    # --- Physical wiring (how the panels are cabled to the HAT/bonnet) ---
+    # 0 = auto. chain_length = panels in one daisy-chain; parallel = how many
+    # chains hang off the HAT's separate outputs. total = chain_length × parallel
+    # must equal the logical panel count (panels_wide × panels_tall).
+    matrix_chain_length: int = 0
+    matrix_parallel: int = 0
+    # Per-logical-cell mapping to physical panels + rotation. [] = identity
+    # (cell k → physical k, no rotation). Each entry: {"physical": int, "rot": int}.
+    matrix_panel_map: list = []
 
     # --- Driver selection ---
     # auto: use real hardware lib if importable, else emulator.
@@ -94,6 +104,24 @@ class Settings(BaseSettings):
         return max(1, self.matrix_panels_wide) * max(1, self.matrix_panels_tall)
 
     @property
+    def parallel_chains(self) -> int:
+        """Physical parallel outputs used (HAT connectors)."""
+        return max(1, self.matrix_parallel or 1)
+
+    @property
+    def chain_length(self) -> int:
+        """Physical daisy-chain length (panels per output)."""
+        if self.matrix_chain_length:
+            return max(1, self.matrix_chain_length)
+        return max(1, self.total_panels // self.parallel_chains)
+
+    @property
+    def physical_size(self) -> tuple[int, int]:
+        """The flat framebuffer the matrix library drives (chain × parallel)."""
+        return (self.matrix_panel_cols * self.chain_length,
+                self.matrix_panel_rows * self.parallel_chains)
+
+    @property
     def matrix_width(self) -> int:
         """Physical panel width in pixels."""
         return self.matrix_panel_cols * self.matrix_panels_wide
@@ -110,9 +138,10 @@ class Settings(BaseSettings):
 
     @property
     def content_size(self) -> tuple[int, int]:
-        """Size to render content at. For 90/270° rotation the render buffer is
-        the panel with its axes swapped; the driver rotates it to physical size."""
-        if self.matrix_orientation in (90, 270):
+        """Size to render content (the logical wall). A single panel can swap
+        axes for 90/270 rotation; a multi-panel wall renders upright and the
+        driver rearranges/rotates each panel via the panel map."""
+        if self.total_panels == 1 and self.matrix_orientation in (90, 270):
             return (self.matrix_height, self.matrix_width)
         return (self.matrix_width, self.matrix_height)
 

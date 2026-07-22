@@ -537,6 +537,18 @@ async def scene_preview(req: Request, body: dict):
     return resp
 
 
+class IdentifyIn(BaseModel):
+    on: bool
+
+
+@router.post("/matrix/identify")
+async def matrix_identify(req: Request, body: IdentifyIn):
+    """Show/hide the panel-identify pattern (numbers each physical panel) so a
+    multi-panel layout can be configured."""
+    _player(req).set_identify(body.on)
+    return {"identifying": body.on}
+
+
 @router.get("/perf")
 async def perf_metrics(req: Request):
     """Live performance metrics — composite/preview timings, CPU%, load average.
@@ -566,6 +578,9 @@ async def status(req: Request):
             "total_panels": settings.total_panels,
             "orientation": settings.matrix_orientation,
             "pwm_bits": settings.matrix_pwm_bits,
+            "chain_length": settings.chain_length,
+            "parallel": settings.parallel_chains,
+            "identifying": _player(req).is_identifying(),
         },
         "power": power.estimate(settings.total_panels),
         "now_showing": {

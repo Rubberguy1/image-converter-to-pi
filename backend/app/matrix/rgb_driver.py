@@ -15,6 +15,7 @@ from PIL import Image
 
 from ..config import settings
 from .base import MatrixDisplay
+from .layout import identify_frame, remap
 
 
 def _load_module(prefer: str):
@@ -46,8 +47,9 @@ class RGBMatrixDriver(MatrixDisplay):
         options = mod.RGBMatrixOptions()
         options.rows = settings.matrix_panel_rows       # per-panel height
         options.cols = settings.matrix_panel_cols       # per-panel width
-        options.chain_length = settings.matrix_panels_wide
-        options.parallel = settings.matrix_panels_tall
+        # Physical wiring: chain length × parallel outputs (not the logical wall).
+        options.chain_length = settings.chain_length
+        options.parallel = settings.parallel_chains
         options.brightness = settings.matrix_brightness
 
         # Hardware-only tuning. The emulator ignores unknown attributes, but we
@@ -78,25 +80,47 @@ class RGBMatrixDriver(MatrixDisplay):
                 pass
 
         self._matrix = mod.RGBMatrix(options=options)
-        self.width = settings.matrix_width          # physical width
-        self.height = settings.matrix_height        # physical height
+        # The app renders at the LOGICAL wall size; set_image() rearranges it to
+        # the physical framebuffer via the panel map.
+        self.width, self.height = settings.content_size
         self._orientation = settings.matrix_orientation % 360
         self._brightness = settings.matrix_brightness
         self._lock = threading.Lock()
         # Double-buffered canvas avoids tearing on hardware.
         self._canvas = self._matrix.CreateFrameCanvas()
 
-    def set_image(self, image: Image.Image) -> None:
-        # Content is rendered at content_size; rotate it to the physical panel
-        # orientation. PIL rotates counter-clockwise, so 90 here == a quarter
-        # turn; pick 90 vs 270 for the direction your panel is mounted.
-        if self._orientation:
-            image = image.rotate(self._orientation, expand=True)
+    def _to_physical(self, image: Image.Image) -> Image.Image:
+        """Turn a logical-wall frame into the physical framebuffer to display."""
         if image.mode != "RGB":
             image = image.convert("RGB")
+        if settings.total_panels <= 1:
+            # Single panel: just apply its rotation (handles non-square cleanly).
+            return image.rotate(self._orientation, expand=True) if self._orientation else image
+        return remap(
+            image,
+            settings.matrix_panel_cols,
+            settings.matrix_panel_rows,
+            max(1, settings.matrix_panels_wide),
+            max(1, settings.matrix_panels_tall),
+            settings.chain_length,
+            settings.parallel_chains,
+            settings.matrix_panel_map,
+        )
+
+    def _push(self, physical: Image.Image) -> None:
         with self._lock:
-            self._canvas.SetImage(image)
+            self._canvas.SetImage(physical)
             self._canvas = self._matrix.SwapOnVSync(self._canvas)
+
+    def set_image(self, image: Image.Image) -> None:
+        self._push(self._to_physical(image))
+
+    def show_identify(self) -> None:
+        """Display the panel-identify pattern (numbers each physical panel)."""
+        self._push(identify_frame(
+            settings.matrix_panel_cols, settings.matrix_panel_rows,
+            settings.chain_length, settings.parallel_chains,
+        ))
 
     def set_brightness(self, brightness: int) -> None:
         brightness = max(0, min(100, int(brightness)))

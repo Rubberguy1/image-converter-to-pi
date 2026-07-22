@@ -637,6 +637,12 @@ button:disabled {
   padding: 1.2rem 1.4rem 1.4rem;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
 }
+/* Settings needs more room (panel-layout grid, tabs) — half the viewport. */
+.modal.settings-modal {
+  width: 50vw;
+  max-width: 50vw;
+  min-width: 360px;
+}
 .modal-head {
   display: flex;
   align-items: center;
@@ -811,6 +817,12 @@ button:disabled {
 @media (max-width: 780px) {
   .scene-grid {
     grid-template-columns: 1fr;
+  }
+  /* 50vw is too cramped on small screens — use most of the width instead. */
+  .modal.settings-modal {
+    width: auto;
+    max-width: 100%;
+    min-width: 0;
   }
 }
 /* scene as the center workspace */
@@ -1072,6 +1084,113 @@ button:disabled {
 .perf-badge.warn {
   color: #f0a030;
   border-color: #f0a030;
+}
+
+/* --- multi-panel layout configurator --- */
+.panel-layout-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.7rem;
+  flex-wrap: wrap;
+}
+.identify-btn.on {
+  background: var(--accent, #5b8cff);
+  color: #fff;
+  border-color: var(--accent, #5b8cff);
+}
+/* Windows-style draggable monitor grid */
+.mon-grid {
+  display: grid;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  padding: 0.6rem;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.mon-tile {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  min-height: 72px;
+  border-radius: 6px;
+}
+.mon-tile.over {
+  outline: 2px dashed var(--accent, #5b8cff);
+  outline-offset: -2px;
+  border-radius: 6px;
+}
+.mon-face {
+  position: absolute;
+  inset: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(160deg, #2a3350, #171b28);
+  border: 1px solid #3a4668;
+  border-radius: 6px;
+  cursor: grab;
+  user-select: none;
+  overflow: hidden;
+}
+.mon-tile.dragging .mon-face {
+  opacity: 0.4;
+  cursor: grabbing;
+}
+.mon-face:active {
+  cursor: grabbing;
+}
+.mon-bar {
+  position: absolute;
+  top: 4px;
+  left: 20%;
+  right: 20%;
+  height: 4px;
+  border-radius: 2px;
+  background: #0aaeff;
+}
+.mon-num {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #eef2ff;
+  font-variant-numeric: tabular-nums;
+}
+.mon-rot {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  line-height: 1;
+  color: #fff;
+  background: rgba(20, 26, 40, 0.85);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.1s;
+  z-index: 3;
+}
+.mon-tile:hover .mon-rot {
+  opacity: 1;
+}
+.mon-rot:hover {
+  background: var(--accent, #5b8cff);
+}
+.mon-rot.tl { top: 2px; left: 2px; }
+.mon-rot.tr { top: 2px; right: 2px; }
+.mon-rot.bl { bottom: 18px; left: 2px; }
+.mon-rot.br { bottom: 18px; right: 2px; }
+.mon-pos {
+  position: absolute;
+  bottom: 2px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 0.6rem;
+  color: var(--muted, #9aa);
+  pointer-events: none;
 }
 
 /* --- toast --- */

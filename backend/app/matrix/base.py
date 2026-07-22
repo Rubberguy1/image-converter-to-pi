@@ -32,5 +32,10 @@ class MatrixDisplay(ABC):
     def clear(self) -> None:
         """Blank the panel."""
 
+    def show_identify(self) -> None:  # optional override
+        """Display a per-panel identify pattern (numbers each physical panel).
+        Default: blank, for drivers that can't render it."""
+        self.clear()
+
     def close(self) -> None:  # optional override
         self.clear()

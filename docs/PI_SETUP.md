@@ -183,6 +183,54 @@ sudo systemctl status pixel-pusher      # check it's running
 journalctl -u pixel-pusher -f           # live logs
 ```
 
+## 10. Updating to a newer version
+
+When you've pushed new code, apply it on the Pi with the helper script:
+
+```bash
+ssh <user>@raspberrypi.local
+cd ~/pixel-pusher
+bash deploy/update.sh
+```
+
+`update.sh` does the whole update in order: `git pull`, update backend deps, rebuild
+the frontend (if `npm` is present), and `sudo systemctl restart pixel-pusher`. Watch
+it come back up with:
+
+```bash
+journalctl -u pixel-pusher -f
+```
+
+> **The Pi pulls from git**, so first **commit and push** your changes from your PC
+> (`git push`), and make sure the Pi is a `git clone` of that repo (not a one-off
+> `scp` copy). Your secrets are safe — `backend/.env` and `backend/data/` are
+> git-ignored, so an update never touches your config, uploaded media, or scenes.
+
+**If `npm` isn't installed on the Pi**, `update.sh` skips the frontend build and
+tells you so. Build `dist/` on your PC and copy just that over each update:
+
+```bash
+# on your PC, after git pull
+cd frontend && npm run build
+scp -r dist <user>@raspberrypi.local:~/pixel-pusher/frontend/
+ssh <user>@raspberrypi.local 'sudo systemctl restart pixel-pusher'
+```
+
+**If the Pi was copied over with `scp`/`rsync` (no git)**, either re-clone it as a
+git repo, or push your changes and `rsync` the update over (excluding the
+platform-specific and local dirs), then restart:
+
+```bash
+# on your PC
+rsync -av --exclude node_modules --exclude .venv --exclude data \
+  ./ <user>@raspberrypi.local:~/pixel-pusher/
+ssh <user>@raspberrypi.local \
+  'cd ~/pixel-pusher && backend/.venv/bin/pip install -q -r backend/requirements.txt && sudo systemctl restart pixel-pusher'
+```
+
+> Some updates change hardware/panel settings behaviour — those apply on the
+> service restart that `update.sh` performs, so no extra step is needed.
+
 ## Tuning notes
 
 - **`MATRIX_GPIO_SLOWDOWN`** depends on the Pi: Pi 3 usually wants **1–2**, Pi 4

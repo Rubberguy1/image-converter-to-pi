@@ -57,6 +57,9 @@ class Player:
         # music/manual content (used by e.g. WLED power sync). Waking restores
         # whatever was showing.
         self._asleep = False
+        # Panel-identify test pattern (above everything) — used while configuring
+        # a multi-panel layout so you can see which physical panel is which.
+        self._identify = False
 
         self._gen = 0
         self._thread = threading.Thread(target=self._run, name="player", daemon=True)
@@ -152,6 +155,20 @@ class Player:
         with self._lock:
             return self._asleep
 
+    def set_identify(self, on: bool) -> None:
+        """Show/hide the panel-identify pattern (top priority)."""
+        with self._lock:
+            if self._identify == on:
+                return
+            self._identify = on
+            self._gen += 1
+        self._wake.set()
+        log.info("panel identify %s", "on" if on else "off")
+
+    def is_identifying(self) -> bool:
+        with self._lock:
+            return self._identify
+
     def is_active(self) -> bool:
         """True when the panel is awake AND actually showing content — i.e. the
         display is 'on'. Used by WLED sync in the panel->lights direction."""
@@ -238,8 +255,17 @@ class Player:
         seen_gen = -1
         while not self._stop.is_set():
             with self._lock:
+                identify = self._identify
                 frames, _ = self._effective_locked()
                 gen = self._gen
+
+            if identify:
+                try:
+                    self._matrix.show_identify()
+                except Exception:
+                    log.exception("identify render failed")
+                self._wait(0.5)
+                continue
 
             if gen != seen_gen:
                 seen_gen = gen

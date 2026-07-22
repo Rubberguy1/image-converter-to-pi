@@ -123,6 +123,13 @@ export const api = {
 
   perf: () => fetch("/api/perf").then(jsonOrThrow),
 
+  identifyPanels: (on) =>
+    fetch("/api/matrix/identify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ on }),
+    }).then(jsonOrThrow),
+
   listFonts: () => fetch("/api/fonts").then(jsonOrThrow),
 
   listScenes: () => fetch("/api/scenes").then(jsonOrThrow),
