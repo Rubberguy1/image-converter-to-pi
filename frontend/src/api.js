@@ -80,6 +80,9 @@ export const api = {
 
   perf: () => get("/api/perf"),
 
+  checkUpdate: () => get("/api/update"),
+  runUpdate: () => send("/api/update", "POST"),
+
   identifyPanels: (on) => send("/api/matrix/identify", "POST", { on }),
 
   listFonts: () => get("/api/fonts"),

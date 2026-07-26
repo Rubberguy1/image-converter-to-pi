@@ -689,6 +689,28 @@ button:disabled {
   margin-top: 0.25rem;
   line-height: 1.3;
 }
+.update-avail {
+  font-weight: 600;
+  color: var(--accent, #4ea1ff);
+  margin: 0.4rem 0 0.3rem;
+}
+.update-changes {
+  margin: 0 0 0.6rem;
+  padding-left: 1.1rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+  line-height: 1.5;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.update-changes li {
+  font-family: var(--mono, ui-monospace, monospace);
+}
+.settings-section .actions {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0.6rem 0;
+}
 .modal .control input[type="text"],
 .modal .control input[type="password"] {
   width: 100%;

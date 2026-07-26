@@ -21,7 +21,7 @@ from pydantic import BaseModel, Field
 
 log = logging.getLogger(__name__)
 
-from .. import perf, power, settings_store
+from .. import perf, power, settings_store, updater
 from ..config import settings
 from ..display import Player
 from ..imaging import Frame, render_to_frames, simulate_bit_depth
@@ -557,6 +557,24 @@ async def matrix_identify(req: Request, body: IdentifyIn):
     return {"identifying": body.on}
 
 
+@router.get("/update")
+async def update_check(req: Request):
+    """Current version + whether a newer one is available on the git remote."""
+    import asyncio
+
+    return await asyncio.to_thread(updater.check)
+
+
+@router.post("/update")
+async def update_apply(req: Request):
+    """Pull + apply the latest (smart update.sh, detached). The backend restarts
+    itself if backend code changed, so the client should reconnect afterward."""
+    try:
+        return updater.run()
+    except Exception as exc:
+        raise HTTPException(400, str(exc))
+
+
 @router.get("/perf")
 async def perf_metrics(req: Request):
     """Live performance metrics — composite/preview timings, CPU%, load average.
@@ -577,6 +595,7 @@ async def status(req: Request):
         # Signature so a browser scanning the LAN can recognise + name a Pi.
         "app": "pixel-pusher",
         "name": socket.gethostname(),
+        "version": updater.current().get("version", "unknown"),
         "matrix": {
             "backend": matrix.backend,
             "width": matrix.width,

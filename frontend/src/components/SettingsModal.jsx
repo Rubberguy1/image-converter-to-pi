@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { api } from "../api.js";
 import PanelLayout from "./PanelLayout.jsx";
+import UpdatesPanel from "./UpdatesPanel.jsx";
 
 // Secret fields are write-only: the backend never returns their value, only a
 // "<field>_set" flag. Leaving one blank keeps the existing value.
@@ -154,6 +155,11 @@ const TABS = [
       },
     ],
   },
+  {
+    id: "updates",
+    label: "Updates",
+    sections: [], // custom content (UpdatesPanel)
+  },
 ];
 
 const ALL_FIELDS = TABS.flatMap((t) => t.sections.flatMap((s) => s.fields));
@@ -285,6 +291,8 @@ export default function SettingsModal({ onClose, onSaved, onToast }) {
                 ))}
               </div>
             ))}
+
+            {tab === "updates" && <UpdatesPanel onToast={onToast} />}
 
             {tab === "panel" && resolution.panels > 1 && (
               <PanelLayout
