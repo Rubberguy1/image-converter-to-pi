@@ -22,9 +22,11 @@
   function anyMediaPlaying() {
     const els = document.querySelectorAll("video, audio");
     for (const el of els) {
-      if (!el.paused && !el.ended && el.currentTime > 0 && el.readyState >= 2) {
-        return true;
-      }
+      if (el.paused || el.ended || el.currentTime <= 0 || el.readyState < 2) continue;
+      // Ignore muted / silent media so autoplaying hover-previews and background
+      // clips don't count as "now playing" and hijack the panel.
+      if (el.muted || el.volume === 0) continue;
+      return true;
     }
     return false;
   }
@@ -49,10 +51,15 @@
       album = md.album || "";
       artwork = bestArtwork(md);
     }
+    // Whether this source published real Media Session metadata (a genuine
+    // music/video player) vs. us falling back to the tab title. The background
+    // worker uses this to prefer real players over metadata-less <video>s.
+    const hasMeta = !!(md && md.title);
+
     // Last resort so plain videos without metadata still show *something*.
     if (!title && playing) title = document.title || "";
 
-    return { playing, title, artist, album, artwork, host: location.hostname };
+    return { playing, title, artist, album, artwork, hasMeta, host: location.hostname };
   }
 
   let last = "";

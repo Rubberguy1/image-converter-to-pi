@@ -13,6 +13,11 @@ const tabs = new Map();
 let lastKey = null;
 let lastSentAt = 0;
 let sending = false;
+// Cache the fetched artwork per track so we can attach it to EVERY post (not
+// just the one where the track changed). Otherwise heartbeats arrive art-less
+// and the Pi, which samples at one moment, can miss the art for the whole song.
+let artKey = null;
+let artB64Cache = null;
 
 async function getConfig() {
   const d = await ext.storage.local.get(["baseUrl", "enabled"]);
@@ -73,17 +78,21 @@ async function postToPi(state, artB64) {
 
 function pickWinner() {
   const now = Date.now();
-  let winner = null;
+  const candidates = [];
   for (const [id, entry] of tabs) {
     if (now - entry.at > STALE_TAB_MS) {
       tabs.delete(id);
       continue;
     }
-    if (entry.state.playing && (!winner || entry.at > winner.at)) {
-      winner = entry;
-    }
+    if (entry.state.playing) candidates.push(entry);
   }
-  return winner;
+  if (!candidates.length) return null;
+  // Prefer sources that published real Media Session metadata (an actual music
+  // player with a title + art) over metadata-less <video>s, so a stray clip
+  // can't hijack the panel. Within the chosen group, the most recent wins.
+  const withMeta = candidates.filter((e) => e.state.hasMeta);
+  const pool = withMeta.length ? withMeta : candidates;
+  return pool.reduce((best, e) => (e.at > best.at ? e : best));
 }
 
 async function evaluate() {
@@ -101,10 +110,21 @@ async function evaluate() {
 
   sending = true;
   try {
-    // Only refetch art when the track actually changes (art is the expensive bit).
-    const artB64 = state.playing && changed && state.artwork
-      ? await fetchArt(state.artwork)
-      : null;
+    // Fetch art once per track (the expensive bit), cache it, and send it on
+    // every post so the Pi always has the bytes regardless of when it samples.
+    let artB64 = null;
+    if (state.playing && state.artwork) {
+      if (artKey !== key) {
+        artB64 = await fetchArt(state.artwork);
+        artKey = key;
+        artB64Cache = artB64;
+      } else {
+        artB64 = artB64Cache;
+      }
+    } else {
+      artKey = null;
+      artB64Cache = null;
+    }
     await postToPi(state, artB64);
     lastKey = key;
     lastSentAt = now;

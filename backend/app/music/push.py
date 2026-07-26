@@ -59,17 +59,29 @@ def record(
             art_bytes = base64.b64decode(art_b64)
         except (ValueError, TypeError):
             art_bytes = None
-    _store.update(
-        NowPlaying(
-            playing=bool(playing),
-            title=title or "",
-            artist=artist or "",
-            album=album or "",
-            # Prefer bytes; only keep a URL when we have no bytes.
-            art_url=(art_url or None) if not art_bytes else None,
-            art_bytes=art_bytes,
-        )
+    np = NowPlaying(
+        playing=bool(playing),
+        title=title or "",
+        artist=artist or "",
+        album=album or "",
+        # Prefer bytes; only keep a URL when we have no bytes.
+        art_url=(art_url or None) if not art_bytes else None,
+        art_bytes=art_bytes,
     )
+    # Safety net: if an art-less update arrives for the SAME track we already
+    # have art for (e.g. a heartbeat), keep the existing art rather than dropping
+    # to the placeholder.
+    prev = _store._np
+    if (
+        np.playing
+        and np.art_bytes is None
+        and not np.art_url
+        and prev.playing
+        and prev.track_key == np.track_key
+    ):
+        np.art_bytes = prev.art_bytes
+        np.art_url = prev.art_url
+    _store.update(np)
 
 
 class PushProvider(MusicProvider):
