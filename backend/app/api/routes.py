@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import io
 import logging
+import socket
 import time
 
 from fastapi import (
@@ -411,11 +412,14 @@ async def update_settings(req: Request, body: SettingsUpdate):
     if keys & _MUSIC_KEYS:
         poller = _poller(req)
         st = poller.status()
-        if st["enabled"]:
-            try:
-                poller.configure(st["provider"], True)
-            except ValueError as exc:
-                raise HTTPException(400, str(exc))
+        # Rebuild the provider with the new credentials — keeping the current
+        # provider and enabled state — so a token/URL change applies immediately
+        # with no app restart. Lazy connect means this never blocks or hard-fails
+        # on a bad token, so a save is never lost.
+        try:
+            poller.configure(st["provider"], st["enabled"])
+        except Exception as exc:
+            log.warning("music reconfigure after credential change failed: %s", exc)
 
     if keys & _WLED_KEYS:
         wled = _wled(req)
@@ -570,6 +574,9 @@ async def status(req: Request):
     matrix = req.app.state.matrix
     showing = _player(req).now_showing()
     return {
+        # Signature so a browser scanning the LAN can recognise + name a Pi.
+        "app": "pixel-pusher",
+        "name": socket.gethostname(),
         "matrix": {
             "backend": matrix.backend,
             "width": matrix.width,

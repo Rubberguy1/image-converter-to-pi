@@ -8,6 +8,7 @@ classes. We pick which module to import based on configuration / availability.
 from __future__ import annotations
 
 import importlib
+import logging
 import os
 import threading
 
@@ -16,6 +17,8 @@ from PIL import Image
 from ..config import settings
 from .base import MatrixDisplay
 from .layout import identify_frame, remap
+
+log = logging.getLogger(__name__)
 
 
 def _load_module(prefer: str):
@@ -48,8 +51,21 @@ class RGBMatrixDriver(MatrixDisplay):
         options.rows = settings.matrix_panel_rows       # per-panel height
         options.cols = settings.matrix_panel_cols       # per-panel width
         # Physical wiring: chain length × parallel outputs (not the logical wall).
-        options.chain_length = settings.chain_length
-        options.parallel = settings.parallel_chains
+        chain, par = settings.chain_length, settings.parallel_chains
+        # The Adafruit HAT/Bonnet only wires ONE chain; requesting parallel>1
+        # makes the library abort() and crash-loops the service. Clamp to a valid
+        # config so a mis-set panel count can't brick the app — the web UI stays
+        # up so it can be corrected.
+        if backend == "hardware" and par > 1 and "adafruit-hat" in settings.matrix_hardware_mapping:
+            log.warning(
+                "GPIO mapping '%s' supports only 1 parallel chain — forcing "
+                "parallel=1, chain=%d. Wire the panels as one daisy chain, or set "
+                "a parallel-capable mapping.", settings.matrix_hardware_mapping, settings.total_panels,
+            )
+            par, chain = 1, settings.total_panels
+        self._chain, self._parallel = chain, par
+        options.chain_length = chain
+        options.parallel = par
         options.brightness = settings.matrix_brightness
 
         # Hardware-only tuning. The emulator ignores unknown attributes, but we
@@ -102,8 +118,8 @@ class RGBMatrixDriver(MatrixDisplay):
             settings.matrix_panel_rows,
             max(1, settings.matrix_panels_wide),
             max(1, settings.matrix_panels_tall),
-            settings.chain_length,
-            settings.parallel_chains,
+            self._chain,
+            self._parallel,
             settings.matrix_panel_map,
         )
 
@@ -119,7 +135,7 @@ class RGBMatrixDriver(MatrixDisplay):
         """Display the panel-identify pattern (numbers each physical panel)."""
         self._push(identify_frame(
             settings.matrix_panel_cols, settings.matrix_panel_rows,
-            settings.chain_length, settings.parallel_chains,
+            self._chain, self._parallel,
         ))
 
     def set_brightness(self, brightness: int) -> None:

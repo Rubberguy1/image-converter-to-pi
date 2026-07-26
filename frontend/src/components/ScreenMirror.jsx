@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { wsUrl } from "../backend.js";
 
 // Mirrors a cropped/downscaled view of the local screen to the panel. Capture
 // happens in the browser (Screen Capture API); only panel-sized frames are sent
@@ -93,8 +94,7 @@ export default function ScreenMirror({ cols, rows, onChanged, onToast }) {
       // browser "Stop sharing" button
       stream.getVideoTracks()[0].addEventListener("ended", stop);
 
-      const proto = location.protocol === "https:" ? "wss" : "ws";
-      const ws = new WebSocket(`${proto}://${location.host}/api/stream/ws`);
+      const ws = new WebSocket(wsUrl("/api/stream/ws"));
       ws.binaryType = "arraybuffer";
       wsRef.current = ws;
       ws.onopen = () => {

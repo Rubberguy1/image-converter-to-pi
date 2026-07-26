@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./api.js";
 import Gallery from "./components/Gallery.jsx";
 import MusicPanel from "./components/MusicPanel.jsx";
@@ -12,8 +12,10 @@ import SceneSidebar from "./components/SceneSidebar.jsx";
 import HeaderDropdown from "./components/HeaderDropdown.jsx";
 import PowerWidget from "./components/PowerWidget.jsx";
 import PerfBadge from "./components/PerfBadge.jsx";
+import ConnectScreen from "./components/ConnectScreen.jsx";
 import Resizer, { clamp } from "./components/Resizer.jsx";
 import { useScene } from "./hooks/useScene.js";
+import { backendBase, setBackendBase, isRemoteBackend, rememberDevice } from "./backend.js";
 
 // Panel content pixel dimensions. For 90/270 orientation the content is rendered
 // with axes swapped (the as-mounted shape).
@@ -61,6 +63,16 @@ export default function App() {
 
   const sc = useScene(showToast, refreshStatus, items);
 
+  // Remember a remote Pi in this browser once we've successfully reached it.
+  const remembered = useRef("");
+  useEffect(() => {
+    const base = backendBase();
+    if (status && isRemoteBackend() && remembered.current !== base) {
+      remembered.current = base;
+      rememberDevice(base, status.name);
+    }
+  }, [status]);
+
   // Switch the (single) music source that feeds album-art music widgets.
   const setMusicProvider = useCallback(
     async (provider) => {
@@ -105,10 +117,14 @@ export default function App() {
 
   if (!status) {
     return (
-      <div className="app loading">
-        <h1>Pixel Pusher</h1>
-        <p>{error ? `Cannot reach backend: ${error}` : "Connecting…"}</p>
-      </div>
+      <ConnectScreen
+        error={error}
+        onConnect={() => {
+          setError(null);
+          refreshStatus();
+          refreshMedia();
+        }}
+      />
     );
   }
 
@@ -132,6 +148,21 @@ export default function App() {
         <StatusBar status={status} onChanged={refreshStatus} onToast={showToast} />
         <PowerWidget power={status.power} />
         <PerfBadge />
+        {isRemoteBackend() && (
+          <button
+            className="server-chip"
+            title={`Backend: ${backendBase()} — click to change`}
+            onClick={() => {
+              const v = prompt("Backend server URL", backendBase());
+              if (v !== null) {
+                setBackendBase(v);
+                location.reload();
+              }
+            }}
+          >
+            🖧 {(() => { try { return new URL(backendBase()).host; } catch { return "remote"; } })()}
+          </button>
+        )}
 
         <HeaderDropdown label="🎵 Music" title="Music sync" badge={status.music.enabled}>
           <MusicPanel music={status.music} onChanged={refreshStatus} onToast={showToast} />

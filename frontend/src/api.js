@@ -1,4 +1,7 @@
 // Thin wrapper around the backend JSON API.
+// Every request goes through apiUrl() so the frontend works both served BY the
+// Pi (same-origin) and run elsewhere pointed AT the Pi (see backend.js).
+import { apiUrl } from "./backend.js";
 
 async function jsonOrThrow(resp) {
   if (!resp.ok) {
@@ -14,151 +17,82 @@ async function jsonOrThrow(resp) {
   return resp.json();
 }
 
-export const api = {
-  status: () => fetch("/api/status").then(jsonOrThrow),
+const json = (body) => ({
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(body),
+});
 
-  listMedia: () => fetch("/api/media").then(jsonOrThrow),
+const get = (path) => fetch(apiUrl(path)).then(jsonOrThrow);
+const send = (path, method, body) =>
+  fetch(apiUrl(path), { method, ...(body === undefined ? {} : json(body)) }).then(jsonOrThrow);
+
+// POST/PUT for a binary response, returning an object URL.
+async function blobUrl(path, method, body) {
+  const resp = await fetch(apiUrl(path), { method, ...(body === undefined ? {} : json(body)) });
+  if (!resp.ok) throw new Error("request failed");
+  return URL.createObjectURL(await resp.blob());
+}
+
+export const api = {
+  status: () => get("/api/status"),
+
+  listMedia: () => get("/api/media"),
 
   upload: (file) => {
     const form = new FormData();
     form.append("file", file);
-    return fetch("/api/media", { method: "POST", body: form }).then(jsonOrThrow);
+    return fetch(apiUrl("/api/media"), { method: "POST", body: form }).then(jsonOrThrow);
   },
 
-  deleteMedia: (id) =>
-    fetch(`/api/media/${id}`, { method: "DELETE" }).then(jsonOrThrow),
+  deleteMedia: (id) => send(`/api/media/${id}`, "DELETE"),
 
-  saveSettings: (id, settings) =>
-    fetch(`/api/media/${id}/settings`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(settings),
-    }).then(jsonOrThrow),
+  saveSettings: (id, settings) => send(`/api/media/${id}/settings`, "PUT", settings),
 
   // Returns an object URL for a panel-sized preview PNG with the given settings.
-  previewUrl: async (id, settings) => {
-    const resp = await fetch(`/api/media/${id}/preview`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(settings),
-    });
-    if (!resp.ok) throw new Error("preview failed");
-    const blob = await resp.blob();
-    return URL.createObjectURL(blob);
-  },
+  previewUrl: (id, settings) => blobUrl(`/api/media/${id}/preview`, "POST", settings),
 
-  display: (id, settings) =>
-    fetch(`/api/display/${id}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(settings),
-    }).then(jsonOrThrow),
+  display: (id, settings) => send(`/api/display/${id}`, "POST", settings),
 
-  stop: () => fetch("/api/display/stop", { method: "POST" }).then(jsonOrThrow),
+  stop: () => send("/api/display/stop", "POST"),
 
-  setBrightness: (value) =>
-    fetch("/api/brightness", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ value }),
-    }).then(jsonOrThrow),
+  setBrightness: (value) => send("/api/brightness", "POST", { value }),
 
-  configureWled: (payload) =>
-    fetch("/api/wled", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    }).then(jsonOrThrow),
+  configureWled: (payload) => send("/api/wled", "POST", payload),
 
-  getSettings: () => fetch("/api/settings").then(jsonOrThrow),
+  getSettings: () => get("/api/settings"),
 
-  updateSettings: (payload) =>
-    fetch("/api/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    }).then(jsonOrThrow),
+  updateSettings: (payload) => send("/api/settings", "PUT", payload),
 
-  musicStatus: () => fetch("/api/music").then(jsonOrThrow),
+  musicStatus: () => get("/api/music"),
 
   configureMusic: (provider, enabled, spin = null) =>
-    fetch("/api/music", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ provider, enabled, spin }),
-    }).then(jsonOrThrow),
+    send("/api/music", "POST", { provider, enabled, spin }),
 
-  getScene: () => fetch("/api/scene").then(jsonOrThrow),
+  getScene: () => get("/api/scene"),
 
-  saveScene: (scene) =>
-    fetch("/api/scene", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(scene),
-    }).then(jsonOrThrow),
+  saveScene: (scene) => send("/api/scene", "PUT", scene),
 
-  enableScene: (enabled) =>
-    fetch("/api/scene/enable", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ enabled }),
-    }).then(jsonOrThrow),
+  enableScene: (enabled) => send("/api/scene/enable", "POST", { enabled }),
 
-  pushSceneValue: (name, value) =>
-    fetch("/api/scene/value", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, value }),
-    }).then(jsonOrThrow),
+  pushSceneValue: (name, value) => send("/api/scene/value", "POST", { name, value }),
 
-  scenePreviewUrl: async (scene) => {
-    const resp = await fetch("/api/scene/preview", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(scene),
-    });
-    if (!resp.ok) throw new Error("scene preview failed");
-    return URL.createObjectURL(await resp.blob());
-  },
+  scenePreviewUrl: (scene) => blobUrl("/api/scene/preview", "POST", scene),
 
-  perf: () => fetch("/api/perf").then(jsonOrThrow),
+  perf: () => get("/api/perf"),
 
-  identifyPanels: (on) =>
-    fetch("/api/matrix/identify", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ on }),
-    }).then(jsonOrThrow),
+  identifyPanels: (on) => send("/api/matrix/identify", "POST", { on }),
 
-  listFonts: () => fetch("/api/fonts").then(jsonOrThrow),
+  listFonts: () => get("/api/fonts"),
 
-  listScenes: () => fetch("/api/scenes").then(jsonOrThrow),
-  saveNamedScene: (name) =>
-    fetch("/api/scenes/save", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
-    }).then(jsonOrThrow),
-  loadNamedScene: (name) =>
-    fetch("/api/scenes/load", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
-    }).then(jsonOrThrow),
-  deleteNamedScene: (name) =>
-    fetch(`/api/scenes/${encodeURIComponent(name)}`, { method: "DELETE" }).then(jsonOrThrow),
+  listScenes: () => get("/api/scenes"),
+  saveNamedScene: (name) => send("/api/scenes/save", "POST", { name }),
+  loadNamedScene: (name) => send("/api/scenes/load", "POST", { name }),
+  deleteNamedScene: (name) => send(`/api/scenes/${encodeURIComponent(name)}`, "DELETE"),
 
   // Preview an image widget's tile at w×h with the given render settings.
-  mediaTilePreviewUrl: async (id, settings, w, h) => {
-    const resp = await fetch(`/api/media/${id}/preview?w=${w}&h=${h}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(settings),
-    });
-    if (!resp.ok) throw new Error("preview failed");
-    return URL.createObjectURL(await resp.blob());
-  },
+  mediaTilePreviewUrl: (id, settings, w, h) =>
+    blobUrl(`/api/media/${id}/preview?w=${w}&h=${h}`, "POST", settings),
 
-  originalUrl: (id) => `/api/media/${id}/original`,
-  thumbUrl: (id) => `/api/media/${id}/thumb`,
+  originalUrl: (id) => apiUrl(`/api/media/${id}/original`),
+  thumbUrl: (id) => apiUrl(`/api/media/${id}/thumb`),
 };

@@ -1,8 +1,18 @@
 #!/usr/bin/env bash
 # Pixel Pusher — Raspberry Pi installer.
-# Run on the Pi from the project root:  bash deploy/install-pi.sh
-# Idempotent-ish: safe to re-run. See docs/PI_SETUP.md for the manual steps.
+# Run on the Pi from the project root:
+#   bash deploy/install-pi.sh                 # all-in-one: backend + frontend on the Pi
+#   bash deploy/install-pi.sh --backend-only  # split: backend only; run the frontend elsewhere
+# Idempotent-ish: safe to re-run. See docs/PI_SETUP.md and docs/DEPLOYMENT.md.
 set -euo pipefail
+
+BACKEND_ONLY=0
+for arg in "$@"; do
+  case "$arg" in
+    --backend-only) BACKEND_ONLY=1 ;;
+    *) echo "unknown option: $arg" >&2; exit 1 ;;
+  esac
+done
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BACKEND_DIR="$PROJECT_DIR/backend"
@@ -44,12 +54,17 @@ if [ ! -f "$BACKEND_DIR/.env" ]; then
   echo "    created backend/.env (review it: nano backend/.env)"
 fi
 
-echo "==> Build frontend (if Node present)"
-if command -v npm >/dev/null 2>&1; then
+if [ "$BACKEND_ONLY" -eq 1 ]; then
+  echo "==> Backend-only install — skipping the frontend build."
+  echo "    Run the frontend elsewhere (Docker / dev server) pointed at this Pi."
+  echo "    See docs/DEPLOYMENT.md."
+elif command -v npm >/dev/null 2>&1; then
+  echo "==> Build frontend"
   (cd "$FRONTEND_DIR" && npm install && npm run build)
 else
-  echo "    npm not found — build the frontend elsewhere and copy frontend/dist here,"
-  echo "    or install Node 20 and re-run. (See docs/PI_SETUP.md step 7.)"
+  echo "==> npm not found — skipping frontend build."
+  echo "    Either install Node 20 and re-run, copy frontend/dist here, or run the"
+  echo "    frontend elsewhere (docs/DEPLOYMENT.md)."
 fi
 
 echo "==> systemd service"

@@ -1,0 +1,14 @@
+# One-click hosting of the Pixel Pusher frontend on Netlify (or as a reference
+# for Cloudflare Pages / Vercel). The frontend is static; it talks to your Pi at
+# a backend URL you enter on the "Connect to your Pi" screen (or bake in with the
+# VITE_API_BASE env var). See docs/DEPLOYMENT.md.
+[build]
+  base = "frontend"
+  command = "npm run build"
+  publish = "dist"
+
+# Single-page app: serve index.html for any path.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

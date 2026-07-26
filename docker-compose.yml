@@ -1,0 +1,21 @@
+# Run the Pixel Pusher FRONTEND somewhere other than the Pi (a laptop, a home
+# server, a NAS). It serves the UI and reverse-proxies /api — and the screen-
+# mirror WebSocket — to your Pi's backend. Because the browser only ever talks
+# to this container (same origin), there are no CORS or mixed-content headaches.
+#
+# Usage (from the repo root):
+#   PI_HOST=192.168.1.199:8000 docker compose up -d --build
+#   → open http://localhost:8080
+#
+# The Pi must be running the backend (install-pi.sh --backend-only). See
+# docs/DEPLOYMENT.md.
+services:
+  frontend:
+    build: ./frontend
+    image: pixel-pusher-frontend
+    ports:
+      - "8080:80"
+    environment:
+      # host:port of the Pi backend (no http:// scheme).
+      PI_HOST: ${PI_HOST:-raspberrypi.local:8000}
+    restart: unless-stopped

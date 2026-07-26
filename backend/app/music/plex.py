@@ -25,12 +25,20 @@ class PlexProvider(MusicProvider):
     def __init__(self, base_url: str, token: str) -> None:
         if not base_url or not token:
             raise ValueError("Plex provider requires PLEX_BASE_URL and PLEX_TOKEN")
-        from plexapi.server import PlexServer  # imported lazily
-
-        self._server = PlexServer(base_url.rstrip("/"), token)
+        # Connect lazily (in the poll worker thread), NOT here — so switching
+        # provider / saving a token never blocks the request or hard-fails on a
+        # bad/expired token. Credential changes rebuild this object, so a new
+        # token takes effect on the next poll with no app restart.
+        self._base_url = base_url.rstrip("/")
+        self._token = token
+        self._server = None
         self._client = httpx.AsyncClient(timeout=8.0)
 
     def _read_session(self) -> NowPlaying:
+        if self._server is None:
+            from plexapi.server import PlexServer  # imported lazily
+
+            self._server = PlexServer(self._base_url, self._token)
         for session in self._server.sessions():
             if getattr(session, "type", None) != "track":
                 continue
