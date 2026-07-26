@@ -27,7 +27,7 @@ from ..display import Player
 from ..imaging import Frame, render_to_frames, simulate_bit_depth
 from ..library import LibraryStore, MediaItem
 from ..library.store import RenderSettings
-from ..music import MusicPoller
+from ..music import MusicPoller, record_now_playing
 
 router = APIRouter()
 
@@ -78,6 +78,17 @@ class MusicConfigIn(BaseModel):
     provider: str = "none"
     enabled: bool = False
     spin: bool | None = None  # spinning-CD album-art effect; None = leave unchanged
+
+
+class NowPlayingIn(BaseModel):
+    """A now-playing update pushed by an external source (browser extension)."""
+    playing: bool = False
+    title: str = ""
+    artist: str = ""
+    album: str = ""
+    art_url: str | None = None
+    art_b64: str | None = None  # base64 image bytes (preferred over art_url)
+    source: str | None = None   # informational, e.g. the tab's hostname
 
 
 class WledConfigIn(BaseModel):
@@ -386,6 +397,22 @@ async def music_configure(req: Request, body: MusicConfigIn):
     except ValueError as exc:
         raise HTTPException(400, str(exc))
     return _poller(req).status()
+
+
+@router.post("/music/nowplaying")
+async def music_now_playing(body: NowPlayingIn):
+    """Ingest a now-playing update pushed by an external source (the browser
+    extension). Stored regardless of the active provider; only surfaced on the
+    panel when the 'browser' provider is selected and music sync is enabled."""
+    record_now_playing(
+        playing=body.playing,
+        title=body.title,
+        artist=body.artist,
+        album=body.album,
+        art_url=body.art_url,
+        art_b64=body.art_b64,
+    )
+    return {"ok": True}
 
 
 # --- user-editable settings (credentials) ---

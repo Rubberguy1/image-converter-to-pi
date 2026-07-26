@@ -18,6 +18,7 @@ from ..imaging import RenderOptions, SpinOptions, render_disc_frames, render_to_
 from .base import MusicProvider, NowPlaying
 from .lastfm import LastFmProvider
 from .plex import PlexProvider
+from .push import PushProvider
 from .vlc import VlcProvider
 
 log = logging.getLogger(__name__)
@@ -34,6 +35,8 @@ def build_provider(name: str, settings: Settings) -> MusicProvider | None:
         return VlcProvider(settings.vlc_base_url, settings.vlc_password)
     if name == "lastfm":
         return LastFmProvider(settings.lastfm_api_key, settings.lastfm_user)
+    if name == "browser":
+        return PushProvider()
     raise ValueError(f"unknown music provider: {name}")
 
 

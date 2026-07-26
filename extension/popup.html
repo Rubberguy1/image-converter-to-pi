@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Pixel Pusher</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        width: 240px;
+        margin: 0;
+        padding: 14px;
+        color: #eaeaea;
+        background: #16181d;
+      }
+      h1 { font-size: 0.95rem; margin: 0 0 10px; }
+      .row { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+      .pi { font-size: 0.75rem; color: #9aa3b2; word-break: break-all; }
+      button {
+        margin-top: 10px;
+        padding: 6px 10px;
+        border-radius: 6px;
+        border: 0;
+        background: #2a2e38;
+        color: #eaeaea;
+        cursor: pointer;
+        font-size: 0.8rem;
+      }
+      #dot { width: 9px; height: 9px; border-radius: 50%; background: #ff7a7a; }
+      #dot.on { background: #5fd08a; }
+    </style>
+  </head>
+  <body>
+    <h1>🎵 Now Playing</h1>
+    <div class="row">
+      <span id="dot"></span>
+      <span id="state">—</span>
+    </div>
+    <div class="pi" id="pi">Not configured</div>
+    <div class="row">
+      <input id="enabled" type="checkbox" />
+      <label for="enabled" style="font-size: 0.8rem">Enabled</label>
+    </div>
+    <button id="opts">Settings…</button>
+    <script src="popup.js"></script>
+  </body>
+</html>

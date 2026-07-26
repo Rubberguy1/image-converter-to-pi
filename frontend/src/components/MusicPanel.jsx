@@ -3,6 +3,7 @@ import { api } from "../api.js";
 
 const PROVIDERS = [
   { value: "none", label: "Off" },
+  { value: "browser", label: "Browser (any tab — YouTube, YT Music, etc.)" },
   { value: "lastfm", label: "Last.fm (universal — YouTube Music, etc.)" },
   { value: "plex", label: "Plex" },
   { value: "vlc", label: "VLC" },
@@ -48,6 +49,15 @@ export default function MusicPanel({ music, onChanged, onToast }) {
           ))}
         </select>
       </div>
+
+      {provider === "browser" && (
+        <p className="field-hint">
+          Install the <b>Pixel Pusher Now Playing</b> browser extension (in the{" "}
+          <code>extension/</code> folder) and point it at this Pi. It sends whatever
+          is playing in any tab — no account or API key. The extension runs on your
+          computer, not the Pi.
+        </p>
+      )}
 
       <label className="checkbox">
         <input

@@ -20,6 +20,9 @@ node_modules/
 frontend/dist/
 frontend/.vite/
 
+# Browser extension build output (assembled by extension/build.*)
+extension/build/
+
 # Editor / OS
 .vscode/
 .idea/

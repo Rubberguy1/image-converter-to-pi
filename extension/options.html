@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Pixel Pusher Now Playing — Options</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 24px;
+        max-width: 460px;
+        color: #eaeaea;
+        background: #16181d;
+      }
+      h1 { font-size: 1.1rem; }
+      label { display: block; margin: 14px 0 4px; font-size: 0.85rem; }
+      input[type="text"] {
+        width: 100%;
+        padding: 8px;
+        border-radius: 6px;
+        border: 1px solid #3a3f4b;
+        background: #1e2129;
+        color: #eaeaea;
+        box-sizing: border-box;
+      }
+      .row { display: flex; align-items: center; gap: 8px; margin-top: 14px; }
+      button {
+        margin-top: 16px;
+        padding: 8px 14px;
+        border-radius: 6px;
+        border: 0;
+        background: #4ea1ff;
+        color: #06121f;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button.secondary { background: #2a2e38; color: #eaeaea; margin-left: 8px; }
+      .hint { font-size: 0.75rem; color: #9aa3b2; line-height: 1.4; margin-top: 6px; }
+      #status { margin-top: 12px; font-size: 0.85rem; min-height: 1.2em; }
+      .ok { color: #5fd08a; }
+      .err { color: #ff7a7a; }
+      code { background: #2a2e38; padding: 1px 4px; border-radius: 4px; }
+    </style>
+  </head>
+  <body>
+    <h1>🎵 Pixel Pusher Now Playing</h1>
+    <p class="hint">
+      This extension sends whatever is playing in your browser to your Pixel
+      Pusher panel. It runs on <b>this computer</b> and talks to the Pi over your
+      network — the Pi doesn't need to host anything for you.
+    </p>
+
+    <label for="baseUrl">Pixel Pusher address</label>
+    <input id="baseUrl" type="text" placeholder="http://192.168.1.50:8000" />
+    <p class="hint">
+      Your Pi's address and port — the same one you open the web app at. Example:
+      <code>http://raspberrypi.local:8000</code> or <code>http://192.168.1.50:8000</code>.
+    </p>
+
+    <div class="row">
+      <input id="enabled" type="checkbox" checked />
+      <label for="enabled" style="margin: 0">Enabled (send now-playing updates)</label>
+    </div>
+
+    <div>
+      <button id="save">Save</button>
+      <button id="test" class="secondary">Test connection</button>
+    </div>
+    <div id="status"></div>
+
+    <p class="hint">
+      In the panel's web app, set <b>Music sync → Source</b> to <b>Browser</b> and
+      press <b>Start syncing</b>.
+    </p>
+
+    <script src="options.js"></script>
+  </body>
+</html>

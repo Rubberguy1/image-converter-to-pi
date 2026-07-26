@@ -62,7 +62,7 @@ class Settings(BaseSettings):
 
     # --- Music sync ---
     music_enabled: bool = False
-    music_provider: Literal["none", "plex", "vlc", "lastfm"] = "none"
+    music_provider: Literal["none", "plex", "vlc", "lastfm", "browser"] = "none"
     music_poll_seconds: float = 4.0
     # Album-art "spinning CD" effect.
     music_spin: bool = True

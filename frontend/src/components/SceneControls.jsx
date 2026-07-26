@@ -3,6 +3,7 @@ import { api } from "../api.js";
 import CropModal from "./CropModal.jsx";
 
 export const MUSIC_PROVIDERS = [
+  { v: "browser", l: "Browser" },
   { v: "lastfm", l: "Last.fm" },
   { v: "plex", l: "Plex" },
   { v: "vlc", l: "VLC" },
