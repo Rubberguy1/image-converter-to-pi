@@ -42,11 +42,20 @@ async function fetchArt(url) {
   if (!url || url.startsWith("data:")) return null;
   try {
     const r = await fetch(url);
-    if (!r.ok) return null;
+    if (!r.ok) {
+      console.log("[PixelPusher] art fetch not ok:", r.status, url.slice(0, 80));
+      return null;
+    }
     const blob = await r.blob();
-    if (blob.size > 3_000_000) return null; // the panel is 64px; don't ship huge art
-    return toBase64(await blob.arrayBuffer());
+    if (blob.size > 3_000_000) {
+      console.log("[PixelPusher] art too big:", blob.size);
+      return null;
+    }
+    const b64 = toBase64(await blob.arrayBuffer());
+    console.log("[PixelPusher] art fetched:", blob.size, "bytes ->", b64.length, "b64");
+    return b64;
   } catch (e) {
+    console.log("[PixelPusher] art fetch threw:", e.message, url.slice(0, 80));
     return null;
   }
 }
@@ -66,13 +75,21 @@ async function postToPi(state, artB64) {
     else if (state.artwork) body.art_url = state.artwork; // let the Pi try the URL
   }
   try {
-    await fetch(baseUrl.replace(/\/+$/, "") + "/api/music/nowplaying", {
+    const resp = await fetch(baseUrl.replace(/\/+$/, "") + "/api/music/nowplaying", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
+    console.log(
+      "[PixelPusher] POST",
+      resp.status,
+      "| playing:", body.playing,
+      "| title:", body.title,
+      "| art_b64:", body.art_b64 ? body.art_b64.length : 0,
+      "| art_url:", body.art_url || "none"
+    );
   } catch (e) {
-    /* Pi unreachable — nothing to do; we'll try again next update */
+    console.log("[PixelPusher] POST failed:", e.message);
   }
 }
 
