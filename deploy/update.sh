@@ -12,7 +12,13 @@ git pull --ff-only
 echo "==> backend deps (fast if unchanged)"
 backend/.venv/bin/pip install -q -r backend/requirements.txt
 
-if command -v npm >/dev/null 2>&1; then
+# Only (re)build the UI if it's already being served here — i.e. keep whatever
+# mode you're in. If frontend/dist was removed (backend-only, UI runs elsewhere),
+# stay backend-only across updates.
+if [ ! -d frontend/dist ]; then
+  echo "==> backend-only (no frontend/dist) — skipping frontend build."
+  echo "   (To serve the UI from the Pi again: cd frontend && npm run build)"
+elif command -v npm >/dev/null 2>&1; then
   echo "==> build frontend"
   cd frontend
   [ -d node_modules ] || npm install
