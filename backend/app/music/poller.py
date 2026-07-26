@@ -52,6 +52,7 @@ class MusicPoller:
 
         self._spin = settings.music_spin
         self._last_key: str | None = None
+        self._art_key: str | None = None  # track we've resolved art for
         self._owns_panel = False
         self._task: asyncio.Task | None = None
         self._error: str | None = None
@@ -146,19 +147,31 @@ class MusicPoller:
         if not np.playing:
             # Stay in music mode (panel blank), don't reveal the custom image.
             self._art_bytes = None
+            self._art_key = None
             if self._last_key is not None:
                 self._player.clear_music()
                 self._last_key = None
             return
 
-        if np.track_key == self._last_key:
-            return  # same track already on the panel
+        # Resolve art when the track changes, OR when we still have no art for the
+        # current track but the source now offers some (art can arrive a beat
+        # after the track is first detected — e.g. the browser extension fetches
+        # the thumbnail asynchronously). Don't re-resolve an art-less track every
+        # tick: only when new art is actually on offer.
+        if np.track_key != self._art_key or (
+            self._art_bytes is None and (np.art_bytes or np.art_url)
+        ):
+            self._art_bytes = await self._resolve_art(np)
+            self._art_key = np.track_key
+            self._last_key = None  # force the fullscreen frames to re-render below
 
-        art = await self._resolve_art(np)
-        self._art_bytes = art  # feed the scene music widget (may be None)
+        if np.track_key == self._last_key:
+            return  # same track already rendered to the panel
+
+        art = self._art_bytes
         if art is None:
             log.debug("no art for %s", np.track_key)
-            self._last_key = np.track_key  # don't retry every tick
+            self._last_key = np.track_key  # don't retry the fullscreen render
             return
 
         content_w, content_h = self._settings.content_size
