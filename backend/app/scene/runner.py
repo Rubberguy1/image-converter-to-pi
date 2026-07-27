@@ -5,7 +5,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 import httpx
 from PIL import Image, ImageDraw
@@ -84,8 +86,21 @@ class SceneRunner:
         # editing never re-decodes the original file — decode once, re-render cheap.
         self._source_cache: dict[tuple, tuple] = {}
         self._anim_total = 0  # longest animation loop (ms) seen in the last render
-        # Rendered album-art tiles keyed by (track_key, w, h, fit).
+        # Rendered album-art tiles keyed by (track_key, w, h, fit). Shared with a
+        # background worker (see _submit_music_render), so guard it with a lock.
         self._music_cache: dict[tuple, Image.Image] = {}
+        self._music_lock = threading.Lock()
+        self._music_pending: set = set()
+        # Album art is rasterised OFF the event loop — 36 supersampled disc
+        # frames take a couple of seconds on a Pi, and doing that inline froze
+        # the whole compositor on every track change. One worker: serialise the
+        # heavy renders rather than thrash the CPU.
+        self._music_executor = ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix="music-art"
+        )
+        # Circular paste masks — cheap, main-thread only, kept out of the shared
+        # cache so they never contend with the worker.
+        self._mask_cache: dict[tuple, Image.Image] = {}
         # The compositor ticks as fast as the fastest on-screen animation needs
         # (so GIFs play at native speed), capped only to bound runaway frame
         # rates. 60 covers every real-world GIF; 64x64 compositing is trivially
@@ -108,6 +123,7 @@ class SceneRunner:
             except asyncio.CancelledError:
                 pass
         await self._client.aclose()
+        self._music_executor.shutdown(wait=False)
         self._player.clear_scene()
 
     # --- API-facing ---
@@ -344,42 +360,67 @@ class SceneRunner:
         draw_boxed_text(base, int(widget.x), int(widget.y), w, h, text,
                         hex_rgb(widget.color), font, scale, widget.align)
 
-    def _music_tile(self, art: bytes, w: int, h: int, fit: str, track_key):
-        """Render (and cache) album-art bytes to a static w×h tile."""
-        key = (track_key, w, h, fit)
-        tile = self._music_cache.get(key)
-        if tile is None:
+    def _submit_music_render(self, key, fn) -> None:
+        """Rasterise album art in the background so the composite loop never
+        blocks on it. `fn()` returns the cached value; stored under `key` when
+        done. No-op if this key is already being rendered."""
+        with self._music_lock:
+            if key in self._music_pending or key in self._music_cache:
+                return
+            self._music_pending.add(key)
+
+        def job():
             try:
-                frames = render_to_frames(art, RenderOptions(w, h, fit=fit))
+                value = fn()
             except Exception:
                 log.debug("album-art render failed", exc_info=True)
-                return None
-            tile = frames[0].image if frames else None
-            if tile is None:
-                return None
-            self._bound_music_cache()
-            self._music_cache[key] = tile
+                value = None
+            with self._music_lock:
+                self._music_pending.discard(key)
+                if value is not None:
+                    self._bound_music_cache()
+                    self._music_cache[key] = value
+
+        self._music_executor.submit(job)
+
+    def _music_tile(self, art: bytes, w: int, h: int, fit: str, track_key):
+        """Album-art as a static w×h tile. Rendered off-loop; returns None (draw
+        the placeholder) until it's ready."""
+        key = (track_key, w, h, fit)
+        with self._music_lock:
+            tile = self._music_cache.get(key)
+        if tile is None:
+            self._submit_music_render(
+                key, lambda: self._render_tile(art, w, h, fit)
+            )
+            return None
         return tile
 
+    def _render_tile(self, art: bytes, w: int, h: int, fit: str):
+        frames = render_to_frames(art, RenderOptions(w, h, fit=fit))
+        return frames[0].image if frames else None
+
+    def _render_disc(self, art: bytes, w: int, h: int):
+        spin = SpinOptions(
+            frames=self._settings.music_spin_frames,
+            revolution_seconds=self._settings.music_spin_seconds,
+        )
+        frames = render_disc_frames(art, RenderOptions(w, h, fit="cover"), spin)
+        if not frames:
+            return None
+        images = [f.image for f in frames]
+        durations = [f.duration_ms for f in frames]
+        return (images, durations, sum(durations) or 100)
+
     def _music_disc_frame(self, art: bytes, w: int, h: int, track_key, at_ms=None):
-        """Current frame of the spinning-disc album art (animates by wall-clock)."""
+        """Current frame of the spinning-disc album art (animates by wall-clock).
+        Rendered off-loop; returns None (draw the placeholder) until it's ready."""
         key = (track_key, w, h, "disc")
-        cached = self._music_cache.get(key)
+        with self._music_lock:
+            cached = self._music_cache.get(key)
         if cached is None:
-            try:
-                spin = SpinOptions(
-                    frames=self._settings.music_spin_frames,
-                    revolution_seconds=self._settings.music_spin_seconds,
-                )
-                frames = render_disc_frames(art, RenderOptions(w, h, fit="cover"), spin)
-            except Exception:
-                log.debug("disc render failed", exc_info=True)
-                return None
-            images = [f.image for f in frames]
-            durations = [f.duration_ms for f in frames]
-            cached = (images, durations, sum(durations) or 100)
-            self._bound_music_cache()
-            self._music_cache[key] = cached
+            self._submit_music_render(key, lambda: self._render_disc(art, w, h))
+            return None
         images, durations, total = cached
         if len(images) <= 1:
             return images[0] if images else None
@@ -398,8 +439,8 @@ class SceneRunner:
     def _disc_paste_mask(self, w: int, h: int) -> Image.Image:
         """Circular alpha mask (with a centre spindle hole) so a disc widget
         shows only its circle over the scene, not the black surround."""
-        key = ("mask", w, h)
-        mask = self._music_cache.get(key)
+        key = (w, h)
+        mask = self._mask_cache.get(key)
         if mask is None:
             mask = Image.new("L", (w, h), 0)
             d = ImageDraw.Draw(mask)
@@ -409,8 +450,9 @@ class SceneRunner:
             r = (diameter / 2) * 0.12
             cx, cy = w / 2, h / 2
             d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=0)
-            self._bound_music_cache()
-            self._music_cache[key] = mask
+            if len(self._mask_cache) > 8:
+                self._mask_cache.pop(next(iter(self._mask_cache)))
+            self._mask_cache[key] = mask
         return mask
 
     def _bound_music_cache(self) -> None:

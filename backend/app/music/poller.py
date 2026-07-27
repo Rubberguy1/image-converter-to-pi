@@ -181,14 +181,17 @@ class MusicPoller:
             fit="cover",
         )
         try:
+            # Rasterising the spinning disc is heavy (many supersampled frames);
+            # run it OFF the event loop so the API and display don't stall while
+            # a new track's art renders.
             if self._spin:
                 spin = SpinOptions(
                     frames=self._settings.music_spin_frames,
                     revolution_seconds=self._settings.music_spin_seconds,
                 )
-                frames = render_disc_frames(art, opts, spin)
+                frames = await asyncio.to_thread(render_disc_frames, art, opts, spin)
             else:
-                frames = render_to_frames(art, opts)
+                frames = await asyncio.to_thread(render_to_frames, art, opts)
         except Exception:
             log.exception("failed to render album art")
             return

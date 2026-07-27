@@ -47,12 +47,34 @@ async function fetchArt(url) {
       return null;
     }
     const blob = await r.blob();
-    if (blob.size > 3_000_000) {
-      console.log("[PixelPusher] art too big:", blob.size);
+
+    // Re-encode to PNG using the browser's decoder. YouTube (and others) serve
+    // WebP/AVIF that the Pi's Pillow often can't read (UnidentifiedImageError);
+    // decoding here and shipping PNG guarantees the Pi can render it. Also
+    // downscale — the panel is tiny, so full-res art is wasted bytes.
+    let bitmap;
+    try {
+      bitmap = await createImageBitmap(blob);
+    } catch (e) {
+      console.log("[PixelPusher] could not decode art:", e.message, blob.type);
       return null;
     }
-    const b64 = toBase64(await blob.arrayBuffer());
-    console.log("[PixelPusher] art fetched:", blob.size, "bytes ->", b64.length, "b64");
+    const MAX = 320;
+    const scale = Math.min(1, MAX / Math.max(bitmap.width, bitmap.height));
+    const w = Math.max(1, Math.round(bitmap.width * scale));
+    const h = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = new OffscreenCanvas(w, h);
+    canvas.getContext("2d").drawImage(bitmap, 0, 0, w, h);
+    if (bitmap.close) bitmap.close();
+    const png = await canvas.convertToBlob({ type: "image/png" });
+    if (png.size > 3_000_000) {
+      console.log("[PixelPusher] art too big:", png.size);
+      return null;
+    }
+    const b64 = toBase64(await png.arrayBuffer());
+    console.log(
+      "[PixelPusher] art re-encoded PNG:", w + "x" + h, png.size, "bytes ->", b64.length, "b64"
+    );
     return b64;
   } catch (e) {
     console.log("[PixelPusher] art fetch threw:", e.message, url.slice(0, 80));
