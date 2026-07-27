@@ -1,5 +1,5 @@
 # Sign the Firefox extension via Mozilla (unlisted) so it installs PERMANENTLY
-# on regular Firefox — temporary add-ons vanish on restart because they're
+# on regular Firefox. Temporary add-ons vanish on restart because they're
 # unsigned.
 #
 # One-time setup:
@@ -11,7 +11,7 @@
 #        $env:WEB_EXT_API_SECRET = "your-long-secret"
 #
 # Then:  ./build.ps1 ; ./sign-firefox.ps1
-# The signed .xpi lands in build/firefox-signed/ — open it in Firefox to install.
+# The signed .xpi lands in build/firefox-signed/. Open it in Firefox to install.
 $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
 
@@ -24,4 +24,4 @@ if (-not $env:WEB_EXT_API_KEY -or -not $env:WEB_EXT_API_SECRET) {
   --artifacts-dir "$root/build/firefox-signed" `
   --channel unlisted
 
-Write-Host "Signed .xpi is in build/firefox-signed/ — open it in Firefox to install permanently."
+Write-Host "Signed .xpi is in build/firefox-signed/. Open it in Firefox to install permanently."
