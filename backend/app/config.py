@@ -14,6 +14,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
 MEDIA_DIR = DATA_DIR / "media"
 FRONTEND_DIST = BASE_DIR.parent / "frontend" / "dist"
+# When this marker exists the backend never serves the bundled UI (API-only) and
+# deploy/update.sh never (re)builds the frontend — the split-deployment case
+# where the UI is hosted elsewhere. See docs/DEPLOYMENT.md.
+BACKEND_ONLY_MARKER = BASE_DIR.parent / ".backend-only"
+
+
+def serve_frontend() -> bool:
+    """True when this install should serve the built UI itself."""
+    return FRONTEND_DIST.exists() and not BACKEND_ONLY_MARKER.exists()
 
 
 class Settings(BaseSettings):

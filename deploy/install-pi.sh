@@ -56,8 +56,12 @@ fi
 
 if [ "$BACKEND_ONLY" -eq 1 ]; then
   echo "==> Backend-only install — skipping the frontend build."
-  echo "    Run the frontend elsewhere (Docker / dev server) pointed at this Pi."
-  echo "    See docs/DEPLOYMENT.md."
+  # Persistent marker: keeps update.sh from ever building the UI and keeps the
+  # backend API-only, even if a dist/ shows up later.
+  touch "$PROJECT_DIR/.backend-only"
+  rm -rf "$FRONTEND_DIR/dist"
+  echo "    Marked backend-only. Run the frontend elsewhere (Docker / dev server)"
+  echo "    pointed at this Pi. See docs/DEPLOYMENT.md."
 elif command -v npm >/dev/null 2>&1; then
   echo "==> Build frontend"
   (cd "$FRONTEND_DIR" && npm install && npm run build)

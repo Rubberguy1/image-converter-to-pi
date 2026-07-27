@@ -34,9 +34,14 @@ if [ "$need_deps" -eq 1 ]; then
   backend/.venv/bin/pip install -q -r backend/requirements.txt
 fi
 
-if [ "$need_frontend" -eq 1 ]; then
+if [ -f .backend-only ]; then
+  # Explicit backend-only install: never build the UI, and drop any stale dist
+  # so the backend serves API-only regardless of what a previous run left behind.
+  echo "==> backend-only (.backend-only present) — skipping frontend build."
+  [ -d frontend/dist ] && { rm -rf frontend/dist; echo "   removed stale frontend/dist."; }
+elif [ "$need_frontend" -eq 1 ]; then
   if [ ! -d frontend/dist ]; then
-    echo "==> frontend changed, but this is backend-only (no dist) — skipping build."
+    echo "==> frontend changed, but no dist here — skipping build."
   elif command -v npm >/dev/null 2>&1; then
     echo "==> frontend changed — rebuilding"
     ( cd frontend && { [ -d node_modules ] || npm install; } && npm run build )

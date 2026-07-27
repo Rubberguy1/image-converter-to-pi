@@ -24,7 +24,7 @@ from starlette.responses import FileResponse
 
 from . import settings_store
 from .api import router as api_router
-from .config import FRONTEND_DIST, settings
+from .config import FRONTEND_DIST, serve_frontend, settings
 from .display import Player
 from .integrations import WledSync
 from .library import LibraryStore
@@ -97,8 +97,9 @@ async def healthz():
 
 
 # Serve the built React app in production. During local dev the frontend runs on
-# the Vite server instead, so this block is simply skipped when dist/ is absent.
-if FRONTEND_DIST.exists():
+# the Vite server instead, so this block is skipped when dist/ is absent — or
+# when the .backend-only marker is set (UI hosted elsewhere).
+if serve_frontend():
     index_file = FRONTEND_DIST / "index.html"
 
     app.mount(

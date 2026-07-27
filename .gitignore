@@ -29,6 +29,9 @@ backend/certs/
 *.key
 *.crt
 
+# Split-deployment marker (this Pi runs backend-only; UI hosted elsewhere)
+.backend-only
+
 # Editor / OS
 .vscode/
 .idea/
