@@ -21,4 +21,6 @@ COPY --from=build /app/dist /usr/share/nginx/html
 COPY docker/default.conf.template /etc/nginx/templates/default.conf.template
 # host:port of the Pi backend (no scheme). Override at run time.
 ENV PI_HOST=raspberrypi.local:8000
+# Scheme to reach the Pi: http (default) or https (if the Pi serves TLS).
+ENV PI_SCHEME=http
 EXPOSE 80

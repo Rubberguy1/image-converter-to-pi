@@ -18,4 +18,6 @@ services:
     environment:
       # host:port of the Pi backend (no http:// scheme).
       PI_HOST: ${PI_HOST:-raspberrypi.local:8000}
+      # http (default) or https — set https when the Pi serves TLS.
+      PI_SCHEME: ${PI_SCHEME:-http}
     restart: unless-stopped
