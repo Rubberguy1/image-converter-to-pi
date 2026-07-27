@@ -39,17 +39,43 @@ bash build.sh
 2. Turn on **Developer mode** (top right).
 3. Click **Load unpacked** and select the `build/chromium` folder.
 
-### Firefox
+### Firefox (temporary — for quick testing)
 
 1. Open `about:debugging#/runtime/this-firefox`.
 2. Click **Load Temporary Add-on…** and select `build/firefox/manifest.json`.
-   - Temporary add-ons are removed when Firefox restarts. To keep it permanently
-     you'd sign it via [AMO](https://addons.mozilla.org/developers/), but for
-     personal use just re-load it after a restart.
 3. Firefox may ask you to grant the "access your data for all websites"
    permission — that's the host access it needs to read media metadata and reach
    the Pi. Allow it (click the extension's puzzle-piece → permissions if it isn't
    granted automatically).
+
+**Temporary add-ons are removed every time Firefox restarts.** To install it
+permanently, sign it (below).
+
+### Firefox (permanent — signed)
+
+Regular Firefox only keeps **signed** extensions across restarts. Mozilla will
+sign your own private copy for free without listing it publicly:
+
+1. Create a free add-on account + API credentials:
+   <https://addons.mozilla.org/en-US/developers/addon/api/key/>
+2. Install the tool: `npm install --global web-ext`
+3. Provide your credentials and sign:
+   ```powershell
+   $env:WEB_EXT_API_KEY    = "user:XXXXXXX:123"
+   $env:WEB_EXT_API_SECRET = "your-long-secret"
+   ./build.ps1
+   ./sign-firefox.ps1        # or: web-ext sign --source-dir build/firefox --channel unlisted
+   ```
+4. The signed `.xpi` appears in `build/firefox-signed/`. Open it in Firefox
+   (drag it onto `about:addons`, or File → Open) to install it permanently.
+
+The extension already declares the add-on ID (`browser_specific_settings.gecko.id`)
+that signing requires, so no manifest changes are needed.
+
+> Alternative without an account: **Firefox Developer Edition, Nightly, or ESR**
+> let you set `xpinstall.signatures.required = false` in `about:config` and then
+> install the unsigned `.xpi` from `web-ext build` permanently. Regular
+> release/Beta Firefox ignore that pref and require signing.
 
 ## Configure
 
