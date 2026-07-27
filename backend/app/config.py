@@ -98,6 +98,14 @@ class Settings(BaseSettings):
     ] = "panel_follows_wled"
     wled_poll_seconds: float = 3.0
 
+    # --- Server / TLS ---
+    # Serve the API + UI over HTTPS when BOTH a cert and key are set (else plain
+    # HTTP). Required for the browser extension used from Firefox, whose secure
+    # background context refuses to fetch a plain-http LAN address. Point them at
+    # the PEM files on the Pi (see docs/HTTPS.md and deploy/enable-https.sh).
+    tls_certfile: str = ""  # path to certificate PEM (leaf, or fullchain)
+    tls_keyfile: str = ""   # path to private key PEM
+
     # --- derived geometry ---
     @property
     def total_panels(self) -> int:
