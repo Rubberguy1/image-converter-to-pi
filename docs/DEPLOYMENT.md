@@ -229,8 +229,30 @@ gains a login, those details live in the browser the same way.
 
 ## Updating
 
-- **Backend (Pi):** `bash deploy/update.sh` (works with `--backend-only` too — it
-  just skips the frontend build if there's no `dist`).
-- **Frontend (Docker):** `git pull` then `PI_HOST=... docker compose up -d --build`.
-- **Frontend (hosted):** push to GitHub — Netlify/Pages/Vercel rebuild
-  automatically.
+`deploy/update.sh` is **deployment-aware** — run the *same* command on any host
+and it does only the right work by detecting what runs there:
+
+- **On the Pi** (backend host): pulls, reinstalls deps if changed, rebuilds the
+  on-Pi UI (unless `--backend-only` / `.backend-only`), and restarts the service
+  if the backend changed. This is also what the web UI's **Update** button runs.
+- **On the NAS/server** (Docker frontend host): pulls, then `docker compose up -d
+  --build` to rebuild the container — but only if the frontend or compose file
+  actually changed. (Needs Docker access for this user; run with `sudo` if not.)
+
+So the flow is just: `bash deploy/update.sh` on the Pi (or the Update button),
+and `bash deploy/update.sh` on the NAS.
+
+- **Frontend (hosted on Netlify/Pages/Vercel):** just push to GitHub — it rebuilds
+  automatically; nothing to run.
+
+### Auto-update the Docker frontend
+
+To avoid running it on the NAS by hand, install a cron that runs the updater on a
+schedule (it's a no-op when nothing changed):
+
+```bash
+bash deploy/install-frontend-autoupdate.sh        # every 30 min
+bash deploy/install-frontend-autoupdate.sh 15     # every 15 min
+```
+
+Logs go to `update.log`; remove the entry any time with `crontab -e`.

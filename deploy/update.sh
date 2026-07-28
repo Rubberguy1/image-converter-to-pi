@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# Smart updater: pull the latest code, then do ONLY the work the changes require.
-#   - backend deps reinstalled only if requirements.txt changed
-#   - frontend rebuilt only if the frontend changed AND it's served here (dist exists)
-#   - service restarted only if backend code (or deps) changed
-# Run on the Pi:  bash deploy/update.sh   (also invoked by the web UI's "Update now")
+# Smart, deployment-aware updater. Run the SAME command on any host — it detects
+# what runs here and does only the right work:
+#   - Backend host (Pi): reinstall deps if changed, rebuild the on-Pi UI (unless
+#     backend-only), restart the service if the backend/deps changed.
+#   - Docker frontend host (NAS / server): rebuild + restart the container.
+# A host can be both. Also invoked by the web UI's "Update now" (runs on the Pi).
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -29,39 +30,65 @@ echo "$CHANGED" | sed 's/^/     /'
 
 match() { echo "$CHANGED" | grep -qE "$1"; }
 
-need_deps=0;    match '^backend/requirements\.txt$' && need_deps=1
-need_backend=0; match '^backend/app/' && need_backend=1
+need_deps=0;     match '^backend/requirements\.txt$' && need_deps=1
+need_backend=0;  match '^backend/app/' && need_backend=1
 need_frontend=0; match '^frontend/(src/|public/|package.*\.json|vite\.config|index\.html|Dockerfile|docker/)' && need_frontend=1
+need_compose=0;  match '^docker-compose\.yml$' && need_compose=1
 
-if [ "$need_deps" -eq 1 ]; then
-  echo "==> requirements changed — installing backend deps"
-  backend/.venv/bin/pip install -q -r backend/requirements.txt
+# --- detect this host's role(s) ---
+has_backend=0
+[ -d backend/.venv ] && has_backend=1
+docker_frontend=0
+if command -v docker >/dev/null 2>&1 && docker compose ps 2>/dev/null | grep -qi 'frontend'; then
+  docker_frontend=1
 fi
 
-if [ -f .backend-only ]; then
-  # Explicit backend-only install: never build the UI, and drop any stale dist
-  # so the backend serves API-only regardless of what a previous run left behind.
-  echo "==> backend-only (.backend-only present) — skipping frontend build."
-  [ -d frontend/dist ] && { rm -rf frontend/dist; echo "   removed stale frontend/dist."; }
-elif [ "$need_frontend" -eq 1 ]; then
-  if [ ! -d frontend/dist ]; then
-    echo "==> frontend changed, but no dist here — skipping build."
-  elif command -v npm >/dev/null 2>&1; then
-    echo "==> frontend changed — rebuilding"
-    ( cd frontend && { [ -d node_modules ] || npm install; } && npm run build )
-  else
-    echo "==> frontend changed but npm not found — skipping build."
-    echo "   (Build frontend/dist on your PC and copy it over, or install Node.)"
+# ---------------------------------------------------------------- backend host
+if [ "$has_backend" -eq 1 ]; then
+  if [ "$need_deps" -eq 1 ]; then
+    echo "==> requirements changed — installing backend deps"
+    backend/.venv/bin/pip install -q -r backend/requirements.txt
   fi
-else
-  echo "==> no frontend changes — skipping build."
+
+  if [ -f .backend-only ]; then
+    echo "==> backend-only (.backend-only present) — skipping on-Pi frontend build."
+    [ -d frontend/dist ] && { rm -rf frontend/dist; echo "   removed stale frontend/dist."; }
+  elif [ "$need_frontend" -eq 1 ]; then
+    if [ ! -d frontend/dist ]; then
+      echo "==> frontend changed, but no dist here — skipping build."
+    elif command -v npm >/dev/null 2>&1; then
+      echo "==> frontend changed — rebuilding on-Pi UI"
+      ( cd frontend && { [ -d node_modules ] || npm install; } && npm run build )
+    else
+      echo "==> frontend changed but npm not found — skipping build."
+      echo "   (Build frontend/dist on your PC and copy it over, or install Node.)"
+    fi
+  else
+    echo "==> no frontend changes — skipping on-Pi build."
+  fi
+
+  if [ "$need_backend" -eq 1 ] || [ "$need_deps" -eq 1 ]; then
+    echo "==> backend changed — restarting service"
+    sudo systemctl restart pixel-pusher
+  else
+    echo "==> no backend changes — leaving the service running (new UI served live)."
+  fi
 fi
 
-if [ "$need_backend" -eq 1 ] || [ "$need_deps" -eq 1 ]; then
-  echo "==> backend changed — restarting service"
-  sudo systemctl restart pixel-pusher
-else
-  echo "==> no backend changes — leaving the service running (new UI is served live)."
+# --------------------------------------------------------- docker frontend host
+if [ "$docker_frontend" -eq 1 ]; then
+  if [ "$need_frontend" -eq 1 ] || [ "$need_compose" -eq 1 ]; then
+    echo "==> docker frontend — rebuilding + restarting container"
+    docker compose up -d --build
+    docker image prune -f >/dev/null 2>&1 || true
+  else
+    echo "==> no frontend/compose changes — docker container left as is."
+  fi
 fi
 
-echo "Done ($BEFORE -> $AFTER). Logs:  journalctl -u pixel-pusher -f"
+if [ "$has_backend" -eq 0 ] && [ "$docker_frontend" -eq 0 ]; then
+  echo "==> Nothing to update here (no backend venv, no running docker frontend)."
+  echo "   On the NAS, start it once with:  docker compose up -d --build"
+fi
+
+echo "Done ($BEFORE -> $AFTER)."

@@ -110,8 +110,10 @@ export default function UpdatesPanel({ onToast }) {
       )}
 
       <p className="field-hint">
-        Updates the <b>backend</b> (and the UI when it's served from the Pi). If your frontend runs
-        elsewhere (a Docker container), update that separately (<code>git pull</code> + rebuild).
+        This button updates the <b>Pi</b> (backend, and the UI when it's served from the Pi). If your
+        frontend runs elsewhere (a Docker container on a NAS), run <code>bash deploy/update.sh</code>
+        on that host — the same script detects Docker and rebuilds the container for you (or set up
+        the auto-update cron, see docs/DEPLOYMENT.md).
       </p>
     </div>
   );
