@@ -71,6 +71,13 @@ else
   echo "    frontend elsewhere (docs/DEPLOYMENT.md)."
 fi
 
+echo "==> Trust the repo for root's git (self-update runs as root)"
+# The service runs as root but the checkout is owned by the login user; without
+# this, root's git refuses with "detected dubious ownership".
+if ! sudo git config --global --get-all safe.directory 2>/dev/null | grep -qxF "$PROJECT_DIR"; then
+  sudo git config --global --add safe.directory "$PROJECT_DIR"
+fi
+
 echo "==> systemd service"
 SERVICE=/etc/systemd/system/pixel-pusher.service
 sudo cp "$PROJECT_DIR/deploy/pixel-pusher.service" "$SERVICE"

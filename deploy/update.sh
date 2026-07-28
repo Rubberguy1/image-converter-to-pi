@@ -9,17 +9,21 @@ set -euo pipefail
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$PROJECT_DIR"
 
-BEFORE="$(git rev-parse HEAD)"
+# -c safe.directory so git works when this runs as root (self-update) but the
+# repo is owned by the login user ("dubious ownership").
+GIT="git -c safe.directory=$PROJECT_DIR"
+
+BEFORE="$($GIT rev-parse HEAD)"
 echo "==> git pull"
-git pull --ff-only
-AFTER="$(git rev-parse HEAD)"
+$GIT pull --ff-only
+AFTER="$($GIT rev-parse HEAD)"
 
 if [ "$BEFORE" = "$AFTER" ]; then
   echo "Already up to date — nothing to do."
   exit 0
 fi
 
-CHANGED="$(git diff --name-only "$BEFORE" "$AFTER")"
+CHANGED="$($GIT diff --name-only "$BEFORE" "$AFTER")"
 echo "==> changed files:"
 echo "$CHANGED" | sed 's/^/     /'
 

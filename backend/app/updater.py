@@ -23,8 +23,10 @@ _VERSION_TTL = 8.0
 
 
 def _git(*args, timeout: int = 20) -> subprocess.CompletedProcess:
+    # -c safe.directory=... so git doesn't refuse with "dubious ownership" when
+    # the service runs as root but the repo is owned by the login user.
     return subprocess.run(
-        ["git", "-C", str(REPO_DIR), *args],
+        ["git", "-C", str(REPO_DIR), "-c", f"safe.directory={REPO_DIR}", *args],
         capture_output=True, text=True, timeout=timeout,
     )
 
