@@ -91,6 +91,23 @@ class NowPlayingIn(BaseModel):
     source: str | None = None   # informational, e.g. the tab's hostname
 
 
+class NotificationIn(BaseModel):
+    """A notification pushed by any source (Discord bot, game server, etc.)."""
+    title: str = ""
+    message: str = ""
+    source: str = "app"
+    color: str = "#4ea1ff"
+    duration: float | None = Field(default=None, ge=1, le=120)
+    priority: int = Field(default=0, ge=0, le=10)
+
+
+class NotifSettingsIn(BaseModel):
+    enabled: bool | None = None
+    default_duration: float | None = Field(default=None, ge=1, le=120)
+    muted_sources: list[str] | None = None
+    min_priority: int | None = Field(default=None, ge=0, le=10)
+
+
 class WledConfigIn(BaseModel):
     enabled: bool = False
     base_url: str | None = None
@@ -397,6 +414,57 @@ async def music_configure(req: Request, body: MusicConfigIn):
     except ValueError as exc:
         raise HTTPException(400, str(exc))
     return _poller(req).status()
+
+
+# --- notifications ---
+def _notifications(req: Request):
+    return req.app.state.notifications
+
+
+@router.get("/notifications")
+async def notifications_state(req: Request):
+    return _notifications(req).state()
+
+
+@router.post("/notifications")
+async def notifications_push(req: Request, body: NotificationIn):
+    """Raise a notification. Any source can call this. Returns the queued item,
+    or {queued: false} if it was filtered out (disabled / muted / low priority)."""
+    if not (body.title or body.message):
+        raise HTTPException(400, "title or message required")
+    n = _notifications(req).add(
+        title=body.title, message=body.message, source=body.source,
+        color=body.color, duration=body.duration, priority=body.priority,
+    )
+    return {"queued": n is not None, "id": n.id if n else None}
+
+
+@router.post("/notifications/test")
+async def notifications_test(req: Request):
+    _notifications(req).add(
+        title="Test notification",
+        message="If you can read this, pop-ups are working.",
+        source="test", color="#4ea1ff",
+    )
+    return {"ok": True}
+
+
+@router.put("/notifications/settings")
+async def notifications_settings(req: Request, body: NotifSettingsIn):
+    patch = body.model_dump(exclude_none=True)
+    return _notifications(req).update_settings(patch)
+
+
+@router.delete("/notifications")
+async def notifications_clear(req: Request):
+    _notifications(req).dismiss(None)
+    return {"ok": True}
+
+
+@router.delete("/notifications/{nid}")
+async def notifications_dismiss(req: Request, nid: int):
+    _notifications(req).dismiss(nid)
+    return {"ok": True}
 
 
 @router.post("/music/nowplaying")

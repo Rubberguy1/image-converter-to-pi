@@ -30,6 +30,7 @@ from .integrations import WledSync
 from .library import LibraryStore
 from .matrix import create_matrix
 from .music import MusicPoller
+from .notifications import NotificationManager
 from .scene import SceneRunner
 
 logging.basicConfig(
@@ -59,6 +60,8 @@ async def lifespan(app: FastAPI):
     await wled.start()
     scene = SceneRunner(player, library, settings, music=poller)
     await scene.start()
+    notifications = NotificationManager(player, settings)
+    await notifications.start()
 
     app.state.matrix = matrix
     app.state.player = player
@@ -66,11 +69,13 @@ async def lifespan(app: FastAPI):
     app.state.poller = poller
     app.state.wled = wled
     app.state.scene = scene
+    app.state.notifications = notifications
     log.info("Pixel Pusher ready (matrix backend=%s)", matrix.backend)
 
     try:
         yield
     finally:
+        await notifications.stop()
         await scene.stop()
         await wled.stop()
         await poller.stop()

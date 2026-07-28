@@ -83,6 +83,13 @@ export const api = {
   checkUpdate: () => get("/api/update"),
   runUpdate: () => send("/api/update", "POST"),
 
+  notifications: () => get("/api/notifications"),
+  pushNotification: (payload) => send("/api/notifications", "POST", payload),
+  testNotification: () => send("/api/notifications/test", "POST"),
+  updateNotifSettings: (payload) => send("/api/notifications/settings", "PUT", payload),
+  dismissNotification: (id) => send(`/api/notifications/${id}`, "DELETE"),
+  clearNotifications: () => send("/api/notifications", "DELETE"),
+
   identifyPanels: (on) => send("/api/matrix/identify", "POST", { on }),
 
   listFonts: () => get("/api/fonts"),

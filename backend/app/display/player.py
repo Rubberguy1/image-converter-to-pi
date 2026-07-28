@@ -14,9 +14,14 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 from dataclasses import dataclass
 
 from PIL import Image
+
+# While a notification overlay is up we re-composite at this rate so it animates
+# smoothly over whatever's underneath.
+_OVERLAY_TICK = 1.0 / 30.0
 
 from ..imaging import Frame
 from ..matrix import MatrixDisplay
@@ -60,6 +65,10 @@ class Player:
         # Panel-identify test pattern (above everything) — used while configuring
         # a multi-panel layout so you can see which physical panel is which.
         self._identify = False
+        # Notification overlay (RGBA, panel-sized). Composited on top of whatever
+        # content is showing; the NotificationManager pushes/clears it. Above all
+        # content, below sleep/identify.
+        self._overlay: Image.Image | None = None
 
         self._gen = 0
         self._thread = threading.Thread(target=self._run, name="player", daemon=True)
@@ -213,6 +222,20 @@ class Player:
             self._gen += 1
         self._wake.set()
 
+    def set_overlay(self, image: Image.Image | None) -> None:
+        """Show (or replace) the notification overlay — an RGBA, panel-sized image
+        composited on top of the current content. Pass None to clear it.
+
+        Deliberately does NOT bump _gen: the overlay isn't content, so the
+        underlying animation must keep its position (not restart) when a
+        notification appears or ends. Just wake the loop to re-render promptly."""
+        with self._lock:
+            self._overlay = image
+        self._wake.set()
+
+    def clear_overlay(self) -> None:
+        self.set_overlay(None)
+
     def set_brightness(self, value: int) -> None:
         self._matrix.set_brightness(value)
 
@@ -253,10 +276,13 @@ class Player:
     def _run(self) -> None:
         idx = 0
         seen_gen = -1
+        next_at = 0.0  # monotonic time to advance to the next underlying frame
         while not self._stop.is_set():
             with self._lock:
                 identify = self._identify
+                asleep = self._asleep
                 frames, _ = self._effective_locked()
+                overlay = self._overlay if not asleep else None  # don't wake a sleeping panel
                 gen = self._gen
 
             if identify:
@@ -270,24 +296,47 @@ class Player:
             if gen != seen_gen:
                 seen_gen = gen
                 idx = 0
+                next_at = 0.0
 
             if not frames:
-                self._matrix.clear()
-                self._wait(0.25)
+                # Nothing underneath — still show the overlay (over black) if any.
+                if overlay is not None:
+                    base = Image.new("RGB", overlay.size, (0, 0, 0))
+                    base.paste(overlay, (0, 0), overlay)
+                    self._render(base)
+                    self._wait(_OVERLAY_TICK)
+                else:
+                    self._matrix.clear()
+                    self._wait(0.25)
                 continue
 
+            # Advance the underlying animation by wall-clock so it keeps playing at
+            # the right speed even while overlay updates wake us early.
+            now = time.monotonic()
+            if len(frames) > 1 and now >= next_at:
+                if next_at != 0.0:
+                    idx += 1
+                next_at = now + max(0.02, frames[idx % len(frames)].duration_ms / 1000.0)
             frame = frames[idx % len(frames)]
-            try:
-                self._matrix.set_image(frame.image)
-            except Exception:  # never let a render error kill the loop
-                log.exception("matrix render failed")
 
-            if len(frames) == 1:
-                self._wait(0.5)  # static: just poll for changes
-                continue
+            image = frame.image
+            if overlay is not None:
+                image = frame.image.convert("RGB")  # copy; don't mutate cached frame
+                image.paste(overlay, (0, 0), overlay)
+            self._render(image)
 
-            idx += 1
-            self._wait(frame.duration_ms / 1000.0)
+            if overlay is not None:
+                self._wait(_OVERLAY_TICK)          # animate overlay smoothly
+            elif len(frames) == 1:
+                self._wait(0.5)                    # static: just poll for changes
+            else:
+                self._wait(max(0.01, next_at - time.monotonic()))
+
+    def _render(self, image: Image.Image) -> None:
+        try:
+            self._matrix.set_image(image)
+        except Exception:  # never let a render error kill the loop
+            log.exception("matrix render failed")
 
     def _wait(self, seconds: float) -> None:
         """Sleep up to `seconds`, returning early if content changed."""

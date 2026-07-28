@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { api } from "../api.js";
 import PanelLayout from "./PanelLayout.jsx";
 import UpdatesPanel from "./UpdatesPanel.jsx";
+import NotificationsPanel from "./NotificationsPanel.jsx";
 
 // Secret fields are write-only: the backend never returns their value, only a
 // "<field>_set" flag. Leaving one blank keeps the existing value.
@@ -156,6 +157,11 @@ const TABS = [
     ],
   },
   {
+    id: "notifications",
+    label: "Notifications",
+    sections: [], // custom content (NotificationsPanel)
+  },
+  {
     id: "updates",
     label: "Updates",
     sections: [], // custom content (UpdatesPanel)
@@ -291,6 +297,8 @@ export default function SettingsModal({ onClose, onSaved, onToast }) {
                 ))}
               </div>
             ))}
+
+            {tab === "notifications" && <NotificationsPanel onToast={onToast} />}
 
             {tab === "updates" && <UpdatesPanel onToast={onToast} />}
 
