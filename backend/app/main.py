@@ -26,7 +26,7 @@ from . import settings_store
 from .api import router as api_router
 from .config import FRONTEND_DIST, serve_frontend, settings
 from .display import Player
-from .integrations import WledSync
+from .integrations import GameServerMonitor, WledSync
 from .library import LibraryStore
 from .matrix import create_matrix
 from .music import MusicPoller
@@ -62,6 +62,8 @@ async def lifespan(app: FastAPI):
     await scene.start()
     notifications = NotificationManager(player, settings)
     await notifications.start()
+    gameservers = GameServerMonitor(notifications)
+    await gameservers.start()
 
     app.state.matrix = matrix
     app.state.player = player
@@ -70,11 +72,13 @@ async def lifespan(app: FastAPI):
     app.state.wled = wled
     app.state.scene = scene
     app.state.notifications = notifications
+    app.state.gameservers = gameservers
     log.info("Pixel Pusher ready (matrix backend=%s)", matrix.backend)
 
     try:
         yield
     finally:
+        await gameservers.stop()
         await notifications.stop()
         await scene.stop()
         await wled.stop()

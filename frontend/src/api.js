@@ -90,6 +90,13 @@ export const api = {
   dismissNotification: (id) => send(`/api/notifications/${id}`, "DELETE"),
   clearNotifications: () => send("/api/notifications", "DELETE"),
 
+  gameServers: () => get("/api/gameservers"),
+  addGameServer: (payload) => send("/api/gameservers", "POST", payload),
+  updateGameServer: (id, payload) => send(`/api/gameservers/${id}`, "PUT", payload),
+  removeGameServer: (id) => send(`/api/gameservers/${id}`, "DELETE"),
+  updateGsSettings: (payload) => send("/api/gameservers/settings", "PUT", payload),
+  testGameServer: (id) => send(`/api/gameservers/${id}/test`, "POST"),
+
   identifyPanels: (on) => send("/api/matrix/identify", "POST", { on }),
 
   listFonts: () => get("/api/fonts"),

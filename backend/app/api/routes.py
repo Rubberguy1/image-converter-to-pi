@@ -108,6 +108,27 @@ class NotifSettingsIn(BaseModel):
     min_priority: int | None = Field(default=None, ge=0, le=10)
 
 
+class GameServerIn(BaseModel):
+    name: str = ""
+    host: str
+    query_port: int = Field(ge=1, le=65535)
+
+
+class GameServerPatch(BaseModel):
+    name: str | None = None
+    host: str | None = None
+    query_port: int | None = Field(default=None, ge=1, le=65535)
+    enabled: bool | None = None
+
+
+class GsSettingsIn(BaseModel):
+    poll_seconds: float | None = Field(default=None, ge=5, le=3600)
+    notify_online: bool | None = None
+    notify_offline: bool | None = None
+    notify_join: bool | None = None
+    notify_leave: bool | None = None
+
+
 class WledConfigIn(BaseModel):
     enabled: bool = False
     base_url: str | None = None
@@ -465,6 +486,47 @@ async def notifications_clear(req: Request):
 async def notifications_dismiss(req: Request, nid: int):
     _notifications(req).dismiss(nid)
     return {"ok": True}
+
+
+# --- game servers (Steam / Source A2S) ---
+def _gameservers(req: Request):
+    return req.app.state.gameservers
+
+
+@router.get("/gameservers")
+async def gameservers_status(req: Request):
+    return _gameservers(req).status()
+
+
+@router.post("/gameservers")
+async def gameservers_add(req: Request, body: GameServerIn):
+    s = _gameservers(req).add_server(body.name, body.host, body.query_port)
+    return {"id": s.id}
+
+
+@router.put("/gameservers/settings")
+async def gameservers_settings(req: Request, body: GsSettingsIn):
+    return _gameservers(req).update_settings(body.model_dump(exclude_none=True))
+
+
+@router.put("/gameservers/{sid}")
+async def gameservers_update(req: Request, sid: int, body: GameServerPatch):
+    s = _gameservers(req).update_server(sid, body.model_dump(exclude_none=True))
+    if s is None:
+        raise HTTPException(404, "no such server")
+    return {"ok": True}
+
+
+@router.delete("/gameservers/{sid}")
+async def gameservers_delete(req: Request, sid: int):
+    if not _gameservers(req).remove_server(sid):
+        raise HTTPException(404, "no such server")
+    return {"ok": True}
+
+
+@router.post("/gameservers/{sid}/test")
+async def gameservers_test(req: Request, sid: int):
+    return await _gameservers(req).test(sid)
 
 
 @router.post("/music/nowplaying")

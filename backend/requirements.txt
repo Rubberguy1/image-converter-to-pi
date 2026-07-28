@@ -14,3 +14,6 @@ RGBMatrixEmulator==0.12.0
 
 # Music providers
 plexapi==4.16.1
+
+# Game-server monitoring (Steam / Source A2S query protocol, UDP)
+python-a2s==1.4.1

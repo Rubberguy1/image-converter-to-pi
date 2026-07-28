@@ -3,6 +3,7 @@ import { api } from "../api.js";
 import PanelLayout from "./PanelLayout.jsx";
 import UpdatesPanel from "./UpdatesPanel.jsx";
 import NotificationsPanel from "./NotificationsPanel.jsx";
+import GameServersPanel from "./GameServersPanel.jsx";
 
 // Secret fields are write-only: the backend never returns their value, only a
 // "<field>_set" flag. Leaving one blank keeps the existing value.
@@ -162,6 +163,11 @@ const TABS = [
     sections: [], // custom content (NotificationsPanel)
   },
   {
+    id: "gameservers",
+    label: "Game servers",
+    sections: [], // custom content (GameServersPanel)
+  },
+  {
     id: "updates",
     label: "Updates",
     sections: [], // custom content (UpdatesPanel)
@@ -299,6 +305,8 @@ export default function SettingsModal({ onClose, onSaved, onToast }) {
             ))}
 
             {tab === "notifications" && <NotificationsPanel onToast={onToast} />}
+
+            {tab === "gameservers" && <GameServersPanel onToast={onToast} />}
 
             {tab === "updates" && <UpdatesPanel onToast={onToast} />}
 
