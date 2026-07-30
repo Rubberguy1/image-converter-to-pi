@@ -56,10 +56,30 @@
     // worker uses this to prefer real players over metadata-less <video>s.
     const hasMeta = !!(md && md.title);
 
+    // Jellyfin doesn't publish Media Session artwork for video, but its stream
+    // URL carries the item id + an ApiKey — build the cover URL from that.
+    if (!artwork) artwork = jellyfinArtwork();
+
     // Last resort so plain videos without metadata still show *something*.
     if (!title && playing) title = document.title || "";
 
     return { playing, title, artist, album, artwork, hasMeta, host: location.hostname };
+  }
+
+  function jellyfinArtwork() {
+    const v = document.querySelector("video");
+    const src = v && v.currentSrc;
+    if (!src) return "";
+    try {
+      const u = new URL(src);
+      const m = u.pathname.match(/\/Videos\/([0-9a-f]{16,})\//i);
+      if (!m) return "";  // not a Jellyfin stream URL
+      const key = u.searchParams.get("ApiKey") || u.searchParams.get("api_key");
+      if (!key) return "";
+      return `${u.origin}/Items/${m[1]}/Images/Primary?maxHeight=400&quality=90&ApiKey=${key}`;
+    } catch (e) {
+      return "";
+    }
   }
 
   let last = "";
