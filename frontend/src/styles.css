@@ -319,7 +319,7 @@ body.resizing .resizer {
 .dropzone.over,
 .dropzone:hover {
   border-color: var(--accent);
-  background: rgba(255, 182, 46, 0.08);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
 .thumbs {
