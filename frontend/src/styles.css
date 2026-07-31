@@ -8,6 +8,7 @@
   --accent: #5b8cff;
   --accent-2: #36d399;
   --danger: #ff5c6c;
+  --caution: #f5a623;
 }
 
 * {
@@ -483,7 +484,7 @@ body.grabbing .pixel-lock {
   color: var(--accent-2);
 }
 .badge.depth {
-  color: #f5a623;
+  color: var(--caution);
 }
 
 /* --- controls --- */
@@ -691,7 +692,7 @@ button:disabled {
 }
 .update-avail {
   font-weight: 600;
-  color: var(--accent, #4ea1ff);
+  color: var(--accent);
   margin: 0.4rem 0 0.3rem;
 }
 .update-changes {
@@ -765,18 +766,18 @@ button:disabled {
   height: 9px;
   border-radius: 50%;
   flex: 0 0 auto;
-  background: #666;
+  background: var(--muted);
 }
-.server-list .dot.on { background: #5fd08a; }
-.server-list .dot.off { background: #ff7a7a; }
+.server-list .dot.on { background: var(--accent-2); }
+.server-list .dot.off { background: var(--danger); }
 .server-list .srv-main { flex: 1; min-width: 0; font-size: 0.8rem; }
 .server-list .srv-meta { font-size: 0.72rem; color: var(--muted); }
-.server-list .srv-meta.off { color: #ff7a7a; }
+.server-list .srv-meta.off { color: var(--danger); }
 .server-list .srv-addr { font-size: 0.65rem; color: var(--muted); opacity: 0.7; }
 .server-list .srv-actions { display: flex; align-items: center; gap: 0.3rem; }
 .server-list .srv-actions button { padding: 0.2rem 0.4rem; font-size: 0.72rem; }
 .checkbox.inline { margin: 0; }
-button.danger { color: #ff7a7a; }
+button.danger { color: var(--danger); }
 .modal .control input[type="text"],
 .modal .control input[type="password"] {
   width: 100%;

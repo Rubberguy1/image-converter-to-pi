@@ -1,0 +1,125 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-26T00:00:00Z",
+  "title": "Design System: Pixel Pusher",
+  "extensions": {
+    "colorMeta": {
+      "bg":      { "role": "neutral", "displayName": "Void",      "canonical": "#0e0f13", "tonalRamp": ["#0e0f13","#14161b","#1a1c23","#23262f","#2e323d","#464b57","#6b7280","#9aa0ac"] },
+      "panel":   { "role": "neutral", "displayName": "Faceplate", "canonical": "#1a1c23", "tonalRamp": ["#0e0f13","#14161b","#1a1c23","#23262f","#2e323d","#464b57","#6b7280","#9aa0ac"] },
+      "panel-2": { "role": "neutral", "displayName": "Module",    "canonical": "#23262f", "tonalRamp": ["#0e0f13","#14161b","#1a1c23","#23262f","#2e323d","#464b57","#6b7280","#9aa0ac"] },
+      "border":  { "role": "neutral", "displayName": "Seam",      "canonical": "#2e323d", "tonalRamp": ["#0e0f13","#14161b","#1a1c23","#23262f","#2e323d","#464b57","#6b7280","#9aa0ac"] },
+      "text":    { "role": "neutral", "displayName": "Text",      "canonical": "#e7e9ee", "tonalRamp": ["#2e323d","#464b57","#6b7280","#9aa0ac","#c4c8d0","#e7e9ee","#f2f3f6","#ffffff"] },
+      "muted":   { "role": "neutral", "displayName": "Muted",     "canonical": "#9aa0ac", "tonalRamp": ["#2e323d","#464b57","#6b7280","#9aa0ac","#c4c8d0","#e7e9ee","#f2f3f6","#ffffff"] },
+      "accent":   { "role": "primary",   "displayName": "Signal Blue", "canonical": "#5b8cff", "tonalRamp": ["#0c1428","#132347","#1b3266","#2f4f96","#4771c9","#5b8cff","#89abff","#c2d3ff"] },
+      "accent-2": { "role": "secondary", "displayName": "Ready Green", "canonical": "#36d399", "tonalRamp": ["#06231a","#0a3a2b","#0f5540","#158058","#20a877","#36d399","#79e3bd","#bff2df"] },
+      "danger":   { "role": "secondary", "displayName": "Fault Red",   "canonical": "#ff5c6c", "tonalRamp": ["#2c0d11","#4a151c","#6d1f29","#9c2c39","#d3414f","#ff5c6c","#ff96a0","#ffccd2"] },
+      "caution":  { "role": "tertiary",  "displayName": "Caution Amber","canonical": "#f5a623", "tonalRamp": ["#2e1e05","#4a3009","#6d470c","#9c6712","#c6851b","#f5a623","#f9c264","#fde3b0"] }
+    },
+    "typographyMeta": {
+      "heading": { "displayName": "Heading", "purpose": "Section titles and panel headers; carried by weight, not size." },
+      "body":    { "displayName": "Body",    "purpose": "Default UI text, button labels, values." },
+      "label":   { "displayName": "Label",   "purpose": "Field labels, hints, source tags, badges — the quiet silk-screen layer." },
+      "mono":    { "displayName": "Readout",  "purpose": "Live machine readings only — Hz, ms, watts, CPU%, counts, versions." }
+    },
+    "shadows": [
+      { "name": "overlay-high", "value": "0 20px 60px rgba(0,0,0,0.5)",  "purpose": "The settings modal — floats well above the faceplate." },
+      { "name": "overlay-low",  "value": "0 8px 24px rgba(0,0,0,0.45)",  "purpose": "Popovers, dropdowns, floating menus." },
+      { "name": "focus-ring",   "value": "0 0 0 1px #5b8cff inset",      "purpose": "Inset accent ring on the focused/active control — not depth, a lit key." }
+    ],
+    "motion": [
+      { "name": "fast",  "value": "0.12s", "purpose": "Snappy state feedback (background, opacity)." },
+      { "name": "state", "value": "0.15s", "purpose": "Border-color / background transitions on hover and focus." }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single lit action in a given context.",
+      "html": "<button class=\"ds-btn-primary\">Start syncing</button>",
+      "css": ".ds-btn-primary { background: #5b8cff; color: #fff; border: 1px solid #5b8cff; border-radius: 6px; padding: 0.5rem 0.9rem; font: 500 0.85rem system-ui, sans-serif; cursor: pointer; transition: background 0.15s, filter 0.15s; } .ds-btn-primary:hover { filter: brightness(1.08); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 2px #0e0f13, 0 0 0 4px #5b8cff; }"
+    },
+    {
+      "name": "Default Button",
+      "kind": "button",
+      "refersTo": "button",
+      "description": "Quiet control at rest; lights its border on approach.",
+      "html": "<button class=\"ds-btn\">Check again</button>",
+      "css": ".ds-btn { background: #23262f; color: #e7e9ee; border: 1px solid #2e323d; border-radius: 6px; padding: 0.5rem 0.9rem; font: 400 0.85rem system-ui, sans-serif; cursor: pointer; transition: border-color 0.15s; } .ds-btn:hover { border-color: #5b8cff; } .ds-btn:focus-visible { outline: none; box-shadow: 0 0 0 1px #5b8cff inset; }"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Ghost control for destructive actions.",
+      "html": "<button class=\"ds-btn-danger\">Remove</button>",
+      "css": ".ds-btn-danger { background: #23262f; color: #ff5c6c; border: 1px solid #2e323d; border-radius: 6px; padding: 0.5rem 0.9rem; font: 400 0.85rem system-ui, sans-serif; cursor: pointer; transition: border-color 0.15s; } .ds-btn-danger:hover { border-color: #ff5c6c; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Module-fill field that lights an inset accent ring on focus.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"http://192.168.1.50:8000\" />",
+      "css": ".ds-input { width: 100%; background: #23262f; color: #e7e9ee; border: 1px solid #2e323d; border-radius: 6px; padding: 0.45rem; font: 400 0.85rem system-ui, sans-serif; } .ds-input::placeholder { color: #9aa0ac; } .ds-input:focus { outline: none; box-shadow: 0 0 0 1px #5b8cff inset; border-color: #5b8cff; }"
+    },
+    {
+      "name": "Tab (active)",
+      "kind": "nav",
+      "refersTo": "tab-active",
+      "description": "Text-only tab; the 2px accent underline is the single lit indicator of location.",
+      "html": "<div class=\"ds-tabs\"><button class=\"ds-tab\">Panel</button><button class=\"ds-tab ds-tab-active\">Notifications</button><button class=\"ds-tab\">Updates</button></div>",
+      "css": ".ds-tabs { display: flex; gap: 0.3rem; border-bottom: 1px solid #2e323d; } .ds-tab { background: none; border: none; border-bottom: 2px solid transparent; color: #9aa0ac; padding: 0.4rem 0.7rem; font: 400 0.85rem system-ui, sans-serif; cursor: pointer; } .ds-tab:hover { color: #e7e9ee; } .ds-tab-active { color: #e7e9ee; border-bottom-color: #5b8cff; }"
+    },
+    {
+      "name": "Status LED",
+      "kind": "custom",
+      "refersTo": "status-led",
+      "description": "Signature element: a 9px circle that reports state by color, always beside a label.",
+      "html": "<span class=\"ds-led-row\"><span class=\"ds-led ds-led-on\"></span> Valheim <span class=\"ds-led-meta\">3/10 · Ashlands</span></span>",
+      "css": ".ds-led-row { display: inline-flex; align-items: center; gap: 0.5rem; color: #e7e9ee; font: 400 0.8rem system-ui, sans-serif; } .ds-led { width: 9px; height: 9px; border-radius: 50%; background: #6b7280; } .ds-led-on { background: #36d399; box-shadow: 0 0 6px #36d39988; } .ds-led-off { background: #ff5c6c; } .ds-led-meta { color: #9aa0ac; font-size: 0.72rem; }"
+    },
+    {
+      "name": "Readout Badge",
+      "kind": "chip",
+      "refersTo": "card",
+      "description": "Compact module-fill badge; live machine numbers set in mono.",
+      "html": "<span class=\"ds-readout\">⚙ 2.6ms · 72% cpu · ld 0.75</span>",
+      "css": ".ds-readout { display: inline-block; background: #23262f; border: 1px solid #2e323d; border-radius: 8px; padding: 0.2rem 0.5rem; color: #9aa0ac; font: 400 0.72rem ui-monospace, monospace; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Synth Rack",
+    "overview": "Pixel Pusher looks like the front of a well-made piece of dark studio hardware — a eurorack module or a lighting console — that happens to live in a browser. The near-black canvas is the anodized faceplate; hairline borders are the seams between modules; and saturated color appears only as status LEDs and lit controls, never as decoration. The physical LED wall is the real output, so the interface deliberately stays dim and recessive: the glowing panel preview, album art, and status lights are the brightest things on screen. The controls themselves are precise and utilitarian — instrument-grade — because this is an Operate surface where the operator is composing scenes and tuning hardware. Personality comes from the faceplate and the LEDs, not from flourish on the buttons. Depth is flat by doctrine: modules sit coplanar, separated by 1px seams, and the only things that float are transient overlays.",
+    "keyCharacteristics": [
+      "Near-black faceplate; cool blue-gray neutrals; color reserved for meaning.",
+      "Saturated hues behave like LEDs — indicators and actions only.",
+      "Flat modules divided by hairline seams; shadows float overlays only.",
+      "Dense, compact, system-font UI with mono for live machine readings.",
+      "Recessive by design so the panel content and previews are what glow."
+    ],
+    "rules": [
+      { "name": "The LED Rule", "body": "Saturated color appears only as indicators and actions — status dots, the primary button, focus rings, the active tab, highlighted live values. It never fills a large surface; on any screen the accent covers well under 10% of the pixels.", "section": "colors" },
+      { "name": "The One-White Rule", "body": "Body and UI text is the cool near-white Text (#e7e9ee). Pure #ffffff is reserved for the label on top of a filled accent button.", "section": "colors" },
+      { "name": "The Readout Rule", "body": "Anything that reports live hardware/machine state is set in mono; everything else is system-sans. If it's a number the device is measuring right now, it's mono.", "section": "typography" },
+      { "name": "The Faceplate Rule", "body": "Resting surfaces are flat and defined by seams, never by shadow. A drop shadow means 'this floats above the faceplate,' so it may appear only on overlays.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do color exclusively through the tokens — accent #5b8cff, accent-2 #36d399, danger #ff5c6c, caution #f5a623.",
+      "Do keep resting surfaces flat and define structure with 1px border seams; reserve shadows for overlays.",
+      "Do set live machine readings in mono; keep prose and labels in system sans.",
+      "Do pair every status color with a label or icon — status must never rely on hue alone.",
+      "Do keep controls quiet at rest and let the accent appear only on interaction.",
+      "Do default to 6px radius; reserve perfect circles for indicators."
+    ],
+    "donts": [
+      "Don't hand-pick near-duplicate hexes (#4ea1ff, #5fd08a, #ff7a7a have crept in — migrate them to the tokens).",
+      "Don't fill large surfaces or headers with a saturated accent.",
+      "Don't add resting drop shadows to cards or panels.",
+      "Don't use pure #ffffff for reading text; that's #e7e9ee.",
+      "Don't introduce a large display/hero type tier.",
+      "Don't center the settings modal vertically or let it balloon — top-aligned and ~460px."
+    ]
+  }
+}

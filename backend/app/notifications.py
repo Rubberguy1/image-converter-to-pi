@@ -100,7 +100,7 @@ class NotificationManager:
         title: str,
         message: str = "",
         source: str = "app",
-        color: str = "#4ea1ff",
+        color: str = "#5b8cff",
         duration: float | None = None,
         priority: int = 0,
     ) -> Notification | None:
@@ -119,7 +119,7 @@ class NotificationManager:
             title=(title or "").strip(),
             message=(message or "").strip(),
             source=source,
-            color=color or "#4ea1ff",
+            color=color or "#5b8cff",
             duration=float(duration if duration is not None else self._cfg.default_duration),
             priority=int(priority),
             created_at=time.monotonic(),

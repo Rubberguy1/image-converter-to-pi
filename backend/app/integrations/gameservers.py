@@ -212,17 +212,17 @@ class GameServerMonitor:
         if new["online"] and was is False and self._cfg.notify_online:
             msg = f"{new.get('map', '')} · {new['players']}/{new['max']}".strip(" ·")
             self._notif.add(title=f"{s.name} online", message=msg,
-                            source="gameserver", color="#5fd08a", priority=1)
+                            source="gameserver", color="#36d399", priority=1)
         elif not new["online"] and was is True and self._cfg.notify_offline:
             self._notif.add(title=f"{s.name} offline", message="not responding",
-                            source="gameserver", color="#ff7a7a", priority=1)
+                            source="gameserver", color="#ff5c6c", priority=1)
         elif new["online"] and was is True:
             delta = new["players"] - prev.get("players", 0)
             if delta > 0 and self._cfg.notify_join:
                 self._notif.add(title=f"{s.name}: player joined",
                                 message=f"{new['players']}/{new['max']}",
-                                source="gameserver", color="#4ea1ff")
+                                source="gameserver", color="#5b8cff")
             elif delta < 0 and self._cfg.notify_leave:
                 self._notif.add(title=f"{s.name}: player left",
                                 message=f"{new['players']}/{new['max']}",
-                                source="gameserver", color="#4ea1ff")
+                                source="gameserver", color="#5b8cff")
