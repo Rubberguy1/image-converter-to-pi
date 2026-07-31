@@ -20,13 +20,13 @@ $GIT pull --ff-only
 AFTER="$($GIT rev-parse HEAD)"
 
 if [ "$BEFORE" = "$AFTER" ]; then
-  echo "Already up to date — nothing to do."
-  exit 0
+  echo "Already up to date — reconciling deps only (in case anything's missing)."
+  CHANGED=""
+else
+  CHANGED="$($GIT diff --name-only "$BEFORE" "$AFTER")"
+  echo "==> changed files:"
+  echo "$CHANGED" | sed 's/^/     /'
 fi
-
-CHANGED="$($GIT diff --name-only "$BEFORE" "$AFTER")"
-echo "==> changed files:"
-echo "$CHANGED" | sed 's/^/     /'
 
 match() { echo "$CHANGED" | grep -qE "$1"; }
 
@@ -45,9 +45,20 @@ fi
 
 # ---------------------------------------------------------------- backend host
 if [ "$has_backend" -eq 1 ]; then
+  # Reconcile deps against requirements.txt on every update. This is idempotent
+  # (pip no-ops what's already satisfied) and self-heals the case where an
+  # earlier update crossed a commit that added a package without installing it
+  # — e.g. python-a2s. Restart only if pip actually installed something.
   if [ "$need_deps" -eq 1 ]; then
     echo "==> requirements changed — installing backend deps"
-    backend/.venv/bin/pip install -q -r backend/requirements.txt
+  else
+    echo "==> reconciling backend deps (catches anything missing)"
+  fi
+  pip_out="$(backend/.venv/bin/pip install -r backend/requirements.txt 2>&1)" \
+    || { echo "$pip_out"; echo "!! pip install failed"; exit 1; }
+  if echo "$pip_out" | grep -qiE 'Successfully installed|Installing collected packages'; then
+    echo "   installed/updated packages — service will restart."
+    need_backend=1
   fi
 
   if [ -f .backend-only ]; then
