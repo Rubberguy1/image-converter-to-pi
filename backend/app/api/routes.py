@@ -96,7 +96,7 @@ class NotificationIn(BaseModel):
     title: str = ""
     message: str = ""
     source: str = "app"
-    color: str = "#5b8cff"
+    color: str = "#ffb62e"
     duration: float | None = Field(default=None, ge=1, le=120)
     priority: int = Field(default=0, ge=0, le=10)
 
@@ -465,7 +465,7 @@ async def notifications_test(req: Request):
     _notifications(req).add(
         title="Test notification",
         message="If you can read this, pop-ups are working.",
-        source="test", color="#5b8cff",
+        source="test", color="#ffb62e",
     )
     return {"ok": True}
 

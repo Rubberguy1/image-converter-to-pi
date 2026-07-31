@@ -11,7 +11,7 @@ export default function NotificationsPanel({ onToast }) {
     message: "",
     source: "manual",
     duration: "",
-    color: "#5b8cff",
+    color: "#ffb62e",
   });
 
   const load = useCallback(async () => {
