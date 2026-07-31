@@ -178,7 +178,7 @@ const TABS = [
 const ALL_FIELDS = TABS.flatMap((t) => t.sections.flatMap((s) => s.fields));
 const NUMERIC = new Set(["number", "slider"]);
 
-export default function SettingsModal({ onClose, onSaved, onToast }) {
+export default function SettingsModal({ onClose, onSaved, onToast, asPage = false }) {
   const [settings, setSettings] = useState(null);
   const [form, setForm] = useState({});
   const [tab, setTab] = useState("panel");
@@ -245,7 +245,7 @@ export default function SettingsModal({ onClose, onSaved, onToast }) {
       onSaved && onSaved();
       if (res.restart_required) {
         setRestartNote(true);
-      } else {
+      } else if (onClose) {
         onClose();
       }
     } catch (e) {
@@ -257,15 +257,16 @@ export default function SettingsModal({ onClose, onSaved, onToast }) {
 
   const currentTab = TABS.find((t) => t.id === tab);
 
-  return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal settings-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-head">
-          <h2>Settings</h2>
-          <button className="modal-x" onClick={onClose} aria-label="Close settings">
-            <Icon name="close" size={18} />
-          </button>
-        </div>
+  const inner = (
+    <>
+        {!asPage && (
+          <div className="modal-head">
+            <h2>Settings</h2>
+            <button className="modal-x" onClick={onClose} aria-label="Close settings">
+              <Icon name="close" size={18} />
+            </button>
+          </div>
+        )}
 
         <div className="tabs">
           {TABS.map((t) => (
@@ -337,8 +338,18 @@ export default function SettingsModal({ onClose, onSaved, onToast }) {
           <button className="primary" onClick={save} disabled={busy || !settings}>
             {busy ? "Saving…" : "Save"}
           </button>
-          <button onClick={onClose}>Close</button>
+          {!asPage && <button onClick={onClose}>Close</button>}
         </div>
+    </>
+  );
+
+  if (asPage) {
+    return <div className="settings-page">{inner}</div>;
+  }
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal settings-modal" onClick={(e) => e.stopPropagation()}>
+        {inner}
       </div>
     </div>
   );

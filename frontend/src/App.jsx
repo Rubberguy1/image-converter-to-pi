@@ -14,7 +14,9 @@ import PowerWidget from "./components/PowerWidget.jsx";
 import PerfBadge from "./components/PerfBadge.jsx";
 import ConnectScreen from "./components/ConnectScreen.jsx";
 import Resizer, { clamp } from "./components/Resizer.jsx";
+import MobileShell from "./components/MobileShell.jsx";
 import { useScene } from "./hooks/useScene.js";
+import { useIsMobile } from "./hooks/useIsMobile.js";
 import { backendBase, setBackendBase, isRemoteBackend, rememberDevice } from "./backend.js";
 
 // Panel content pixel dimensions. For 90/270 orientation the content is rendered
@@ -65,6 +67,7 @@ export default function App() {
   }, [showToast]);
 
   const sc = useScene(showToast, refreshStatus, items);
+  const isMobile = useIsMobile();
 
   // Undo / redo for scene edits (ignored while typing in a field).
   useEffect(() => {
@@ -162,6 +165,42 @@ export default function App() {
     setProvider: setMusicProvider,
   };
 
+  const toastEl = toast && (
+    <div className={`toast ${toast.isError ? "error" : ""}`}>
+      <span>{toast.msg}</span>
+      {toast.action && (
+        <button
+          className="toast-action"
+          onClick={() => {
+            toast.action.onClick();
+            setToast(null);
+          }}
+        >
+          {toast.action.label}
+        </button>
+      )}
+    </div>
+  );
+
+  if (isMobile) {
+    return (
+      <div className="app mobile">
+        <MobileShell
+          sc={sc}
+          status={status}
+          dims={dims}
+          items={items}
+          music={music}
+          fonts={fonts}
+          showToast={showToast}
+          refreshStatus={refreshStatus}
+          refreshMedia={refreshMedia}
+        />
+        {toastEl}
+      </div>
+    );
+  }
+
   return (
     <div className="app">
       <header>
@@ -240,22 +279,7 @@ export default function App() {
         />
       )}
 
-      {toast && (
-        <div className={`toast ${toast.isError ? "error" : ""}`}>
-          <span>{toast.msg}</span>
-          {toast.action && (
-            <button
-              className="toast-action"
-              onClick={() => {
-                toast.action.onClick();
-                setToast(null);
-              }}
-            >
-              {toast.action.label}
-            </button>
-          )}
-        </div>
-      )}
+      {toastEl}
     </div>
   );
 }

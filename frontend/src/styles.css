@@ -1023,6 +1023,7 @@ button.danger { color: var(--danger); }
   min-height: 8px;
   border: 1px dashed transparent;
   cursor: grab;
+  touch-action: none; /* drag a widget without scrolling the page on touch */
   user-select: none;
   z-index: 8;
 }
@@ -1680,4 +1681,242 @@ button.danger { color: var(--danger); }
     min-height: 42px;
     min-width: 42px;
   }
+}
+
+/* ==========================================================================
+   Mobile app shell — a fixed bottom tab bar over one full-screen view.
+   Rendered only on phones (App.jsx / useIsMobile), so no media query needed.
+   ========================================================================== */
+.app.mobile {
+  height: 100dvh;
+  overflow: hidden;
+}
+.mshell {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.mview {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 1rem 1rem calc(1.4rem + env(safe-area-inset-bottom));
+}
+.mnav {
+  flex: 0 0 auto;
+  display: flex;
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.mnav-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 0.55rem 0 0.5rem;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 0.62rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.mnav-btn.active {
+  color: var(--accent);
+}
+
+/* shared card surface */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  padding: 1rem;
+}
+.round-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-full);
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  cursor: pointer;
+}
+
+/* Home dashboard */
+.mhome {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.mhome-greet {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.mhome-hi {
+  font-size: var(--fs-xl);
+  font-weight: 700;
+}
+.mhome-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+.mhome-onair {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: var(--fs-sm);
+}
+.mhome-dims {
+  margin-left: auto;
+}
+.mhome-preview {
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 140px;
+  max-height: 42vh;
+}
+.mhome-preview img {
+  width: 100%;
+  height: 100%;
+  max-height: 42vh;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+.mhome-preview .placeholder {
+  color: var(--muted);
+}
+.mhome-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+.mhome-actions button {
+  flex: 1;
+  min-height: 44px;
+}
+.mhome-bright {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+.mhome-bright label {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+.mhome-bright input[type="range"] {
+  flex: 1;
+}
+.mhome-tiles {
+  display: flex;
+  gap: 0.5rem;
+}
+.mhome-tiles .hdropdown {
+  flex: 1;
+}
+.mhome-tiles .hbtn {
+  width: 100%;
+  justify-content: center;
+  min-height: 46px;
+}
+
+/* Scenes gallery */
+.mscenes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+.mscenes h2 {
+  margin: 0;
+}
+.mscene-saveas label {
+  display: block;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  margin-bottom: 0.4rem;
+}
+.mscene-saveas .row {
+  display: flex;
+  gap: 0.5rem;
+}
+.mscene-saveas .row input {
+  flex: 1;
+  min-height: 44px;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 0 0.6rem;
+}
+.mscene-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.mscene-card {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 0.9rem;
+}
+.mscene-name {
+  flex: 1;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mscene-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+.mscene-actions button {
+  min-height: 40px;
+}
+
+/* Settings rendered inline as a page (not a modal) */
+.settings-page {
+  display: flex;
+  flex-direction: column;
+}
+.settings-page .tabs {
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  scrollbar-width: none;
+}
+.settings-page .tabs::-webkit-scrollbar {
+  display: none;
+}
+.settings-page .tab {
+  flex: 0 0 auto;
+  min-height: 42px;
+}
+.settings-page .tab-body {
+  max-height: none;
+}
+
+/* Editor tab: stacked, canvas first */
+.meditor {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
