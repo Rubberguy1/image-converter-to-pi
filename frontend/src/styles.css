@@ -714,11 +714,16 @@ button:disabled {
   margin: 0;
 }
 .modal-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: transparent;
   border: none;
-  font-size: var(--fs-2xl);
   color: var(--muted);
   cursor: pointer;
+}
+.modal-x:hover {
+  color: var(--text);
 }
 .modal-sub {
   font-size: var(--fs-md);
@@ -1622,14 +1627,57 @@ button.danger { color: var(--danger); }
     border-radius: var(--r-xl) var(--r-xl) 0 0;
     border-bottom: none;
   }
+  /* Settings becomes a full-screen sheet with a sticky header + tabs. */
+  .modal-backdrop {
+    align-items: stretch;
+    padding: 0;
+    overflow: hidden;
+  }
   .modal,
   .modal.settings-modal {
-    width: auto;
+    width: 100%;
     max-width: 100%;
     min-width: 0;
+    height: 100dvh;
+    max-height: 100dvh;
+    border: none;
+    border-radius: 0;
+    padding: 0 1rem 1rem;
+    display: flex;
+    flex-direction: column;
   }
-  .tabs {
+  .modal-head {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--panel);
+    padding: 0.9rem 0 0.4rem;
+  }
+  .modal .tabs {
+    position: sticky;
+    top: 3rem;
+    z-index: 2;
+    background: var(--panel);
     overflow-x: auto;
     flex-wrap: nowrap;
+    margin-top: 0;
+    scrollbar-width: none;
+  }
+  .modal .tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .tab {
+    flex: 0 0 auto;
+    min-height: 42px;
+  }
+  .tab-body {
+    flex: 1;
+    max-height: none;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .modal-x {
+    min-height: 42px;
+    min-width: 42px;
   }
 }

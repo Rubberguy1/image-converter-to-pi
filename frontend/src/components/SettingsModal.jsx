@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { api } from "../api.js";
+import Icon from "./Icon.jsx";
 import PanelLayout from "./PanelLayout.jsx";
 import UpdatesPanel from "./UpdatesPanel.jsx";
 import NotificationsPanel from "./NotificationsPanel.jsx";
@@ -261,7 +262,9 @@ export default function SettingsModal({ onClose, onSaved, onToast }) {
       <div className="modal settings-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
           <h2>Settings</h2>
-          <button className="modal-x" onClick={onClose}>×</button>
+          <button className="modal-x" onClick={onClose} aria-label="Close settings">
+            <Icon name="close" size={18} />
+          </button>
         </div>
 
         <div className="tabs">
