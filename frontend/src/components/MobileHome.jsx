@@ -28,9 +28,6 @@ export default function MobileHome({ sc, status, dims, onToast, onChanged, goEdi
             {status.matrix.width}×{status.matrix.height} panel · {status.power?.max_watts ?? "?"} W max
           </div>
         </div>
-        <button className="round-btn" onClick={goScenes} aria-label="Saved scenes">
-          <Icon name="grid" size={20} />
-        </button>
       </div>
 
       <div className="card mhome-panel">
