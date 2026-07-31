@@ -29,29 +29,26 @@ export default function SceneSidebar({ sc, cols, rows, media }) {
   return (
     <aside className="scene-sidebar">
       <div className="settings-section">
-        <h4>Preview</h4>
-        <div className="preview-box" style={{ "--panel-aspect": cols / rows }}>
-          <span className="preview-label">
-            {cols}×{rows} · {sc.scene.enabled ? "showing on panel" : "not shown"}
-          </span>
-          {sc.previewUrl ? (
-            <img className="panel-preview" src={sc.previewUrl} alt="scene preview" />
-          ) : (
-            <div className="panel-preview placeholder" style={{ "--panel-aspect": cols / rows }}>
-              …
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="settings-section">
         <h4>Layers</h4>
         {layers.length === 0 && <p className="field-hint">No items yet.</p>}
         {layers.map((w) => (
           <div
             key={w.id}
+            role="button"
+            tabIndex={0}
+            aria-current={w.id === sc.selId ? "true" : undefined}
+            aria-label={`${layerLabel(w, media)} layer${w.hidden ? ", hidden" : ""}${
+              w.id === sc.selId ? ", selected" : ""
+            }`}
             className={`layer-row ${w.id === sc.selId ? "sel" : ""} ${w.hidden ? "hidden" : ""}`}
             onClick={() => sc.setSelId(w.id)}
+            onKeyDown={(e) => {
+              if (e.target !== e.currentTarget) return;
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                sc.setSelId(w.id);
+              }
+            }}
           >
             <span className="layer-icon" aria-hidden="true"><Icon name={w.type} size={14} /></span>
             <span className="layer-name" title={layerLabel(w, media)}>

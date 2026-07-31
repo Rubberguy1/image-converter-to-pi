@@ -47,10 +47,19 @@ export default function SceneControls({ sc, cols, rows, media, music, fonts }) {
             })
           }
         >
-          Save
+          Save{sc.dirty ? " •" : ""}
         </button>
-        <button onClick={sc.toggle}>{scene.enabled ? "Turn off" : "Show on panel"}</button>
+        <button className={scene.enabled ? "primary" : ""} onClick={sc.toggle}>
+          {scene.enabled ? "Turn off" : "Show on panel"}
+        </button>
       </div>
+      <p className="field-hint save-note">
+        {sc.dirty
+          ? "Unsaved edits — Save (or Show on panel) writes them to the Pi."
+          : scene.enabled
+          ? "Live on the panel · all changes saved."
+          : "All changes saved · not shown on the panel yet."}
+      </p>
 
       <div className="settings-section">
         <h4>Background</h4>
@@ -457,7 +466,16 @@ export default function SceneControls({ sc, cols, rows, media, music, fonts }) {
         {sc.saved.length === 0 && <p className="field-hint">No saved scenes yet.</p>}
         {sc.saved.map((name) => (
           <div className="saved-row" key={name}>
-            <button className="linklike" onClick={() => sc.loadNamed(name)}>
+            <button
+              className="linklike"
+              onClick={() => {
+                if (
+                  !sc.dirty ||
+                  window.confirm(`Load "${name}" and discard your unsaved changes?`)
+                )
+                  sc.loadNamed(name);
+              }}
+            >
               {name}
             </button>
             <button

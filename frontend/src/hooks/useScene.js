@@ -63,9 +63,20 @@ export function useScene(onToast, onChanged, media = []) {
   const [selId, setSelId] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [saved, setSaved] = useState([]);
+  const [dirty, setDirty] = useState(false); // edits not yet saved to the Pi
+  const savedRef = useRef(scene);             // the scene as last saved/loaded
   const timer = useRef(null);
   const sceneRef = useRef(scene);
   sceneRef.current = scene;
+
+  // A save/load is the clean baseline; edits after it make the scene dirty.
+  const markSaved = () => {
+    savedRef.current = sceneRef.current;
+    setDirty(false);
+  };
+  useEffect(() => {
+    setDirty(scene !== savedRef.current);
+  }, [scene]);
 
   // --- undo / redo history ---
   // Rapid edits (a drag, typing) coalesce into ONE step: we record the previous
@@ -137,6 +148,8 @@ export function useScene(onToast, onChanged, media = []) {
           const s = withBoxes(r.scene);
           resetHistory(s);
           setScene(s);
+          savedRef.current = s;
+          setDirty(false);
         }
       })
       .catch(() => {});
@@ -207,6 +220,7 @@ export function useScene(onToast, onChanged, media = []) {
         await api.saveScene(scene); // persist current as active first
         await api.saveNamedScene(name);
         await refreshSaved();
+        markSaved();
         onToast(`Saved scene "${name}"`);
       } catch (e) {
         onToast(`Error: ${e.message}`, true);
@@ -218,6 +232,8 @@ export function useScene(onToast, onChanged, media = []) {
         const s = withBoxes(r.scene);
         resetHistory(s);
         setScene(s);
+        savedRef.current = s;
+        setDirty(false);
         setSelId(null);
         onToast(`Loaded "${name}"`);
         onChanged && onChanged();
@@ -305,10 +321,12 @@ export function useScene(onToast, onChanged, media = []) {
     redo,
     canUndo,
     canRedo,
+    dirty,
     save: async (weather) => {
       try {
         await api.saveScene(scene);
         if (weather) await api.updateSettings(weather);
+        markSaved();
         onToast("Scene saved");
         onChanged && onChanged();
       } catch (e) {
@@ -317,9 +335,12 @@ export function useScene(onToast, onChanged, media = []) {
     },
     toggle: async () => {
       const enabled = !scene.enabled;
-      setScene((s) => ({ ...s, enabled }));
+      const next = { ...sceneRef.current, enabled };
+      setScene(next);
+      savedRef.current = next; // toggling on/off persists immediately, not a dirty edit
+      setDirty(false);
       try {
-        await api.saveScene({ ...scene, enabled });
+        await api.saveScene(next);
         onToast(enabled ? "Scene showing on panel" : "Scene off");
         onChanged && onChanged();
       } catch (e) {

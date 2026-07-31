@@ -305,7 +305,10 @@ export default function SceneCanvas({ sc, cols, rows, music, media }) {
   return (
     <div className="scene-workspace">
       <div className="editor-head">
-        <h2>Scene</h2>
+        <h2 className="editor-onair" title={sc.scene.enabled ? "Showing on the panel" : "Not shown on the panel"}>
+          <span className={`onair-dot ${sc.scene.enabled ? "live" : ""}`} aria-hidden="true" />
+          {sc.scene.enabled ? "On air" : "Off"}
+        </h2>
         <div className="editor-undo">
           <button
             className="icon-btn"
@@ -341,7 +344,7 @@ export default function SceneCanvas({ sc, cols, rows, music, media }) {
           Uniform scale
         </label>
         <span className="muted small">
-          {cols}×{rows} · {sc.scene.enabled ? "showing" : "not shown"} · drag or arrow-keys to move · ⋯ / right-click for actions
+          {cols}×{rows} · drag or arrow-keys to move · ⋯ / right-click for actions
         </span>
       </div>
       <div className="scene-canvas" ref={ref} style={{ "--panel-aspect": cols / rows }}>

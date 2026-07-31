@@ -194,6 +194,10 @@ main {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent) inset;
 }
+.layer-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
 .layer-row.hidden .layer-name,
 .layer-row.hidden .layer-icon {
   opacity: 0.4;
@@ -413,6 +417,27 @@ body.resizing .resizer {
 .editor-head h2 {
   margin: 0;
   font-size: var(--fs-xl);
+}
+/* live on-air status pill (replaces the redundant "Scene" heading) */
+.editor-onair {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: var(--fs-md);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+}
+.onair-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: var(--r-full);
+  background: var(--border);
+}
+.onair-dot.live {
+  background: var(--accent-2);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent-2) 70%, transparent);
 }
 .editor-head .checkbox {
   margin: 0;
@@ -1583,11 +1608,6 @@ button.danger { color: var(--danger); }
   button.primary,
   button.danger {
     min-height: 42px;
-  }
-
-  /* the right-rail Preview duplicates the live canvas above — drop it on phone */
-  .scene-sidebar > .settings-section:first-of-type {
-    display: none;
   }
 
   /* overlays go full-width / bottom-sheet */
