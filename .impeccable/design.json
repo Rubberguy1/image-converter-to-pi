@@ -16,10 +16,13 @@
       "caution":  { "role": "tertiary",  "displayName": "Caution Amber","canonical": "#f5a623", "tonalRamp": ["#2e1e05","#4a3009","#6d470c","#9c6712","#c6851b","#f5a623","#f9c264","#fde3b0"] }
     },
     "typographyMeta": {
-      "heading": { "displayName": "Heading", "purpose": "Section titles and panel headers; carried by weight, not size." },
-      "body":    { "displayName": "Body",    "purpose": "Default UI text, button labels, values." },
-      "label":   { "displayName": "Label",   "purpose": "Field labels, hints, source tags, badges — the quiet silk-screen layer." },
-      "mono":    { "displayName": "Readout",  "purpose": "Live machine readings only — Hz, ms, watts, CPU%, counts, versions." }
+      "stat":    { "displayName": "Stat",    "purpose": "The single large data readout (a monitor number) and icon glyphs (1.4rem). Prominent data, not a heading." },
+      "title":   { "displayName": "Title",   "purpose": "Top page/editor title (1.15rem)." },
+      "heading": { "displayName": "Heading", "purpose": "Section titles and panel headers (1rem); carried by weight, not size." },
+      "body":    { "displayName": "Body",    "purpose": "Default UI text, button labels, values (0.85rem)." },
+      "label":   { "displayName": "Label",   "purpose": "Field labels, hints, secondary meta (0.75rem)." },
+      "micro":   { "displayName": "Micro",   "purpose": "Tiny tags, thumbnail badges, addresses (0.65rem) — the quiet silk-screen layer." },
+      "mono":    { "displayName": "Readout", "purpose": "Live machine readings only — Hz, ms, watts, CPU%, counts, versions (mono, 0.75rem)." }
     },
     "shadows": [
       { "name": "overlay-high", "value": "0 20px 60px rgba(0,0,0,0.5)",  "purpose": "The settings modal — floats well above the faceplate." },
@@ -103,10 +106,12 @@
       { "name": "The LED Rule", "body": "Saturated color appears only as indicators and actions — status dots, the primary button, focus rings, the active tab, highlighted live values. It never fills a large surface; on any screen the accent covers well under 10% of the pixels.", "section": "colors" },
       { "name": "The One-White Rule", "body": "Body and UI text is the cool near-white Text (#e7e9ee). Pure #ffffff is reserved for the label on top of a filled accent button.", "section": "colors" },
       { "name": "The Readout Rule", "body": "Anything that reports live hardware/machine state is set in mono; everything else is system-sans. If it's a number the device is measuring right now, it's mono.", "section": "typography" },
+      { "name": "The Scale Rule", "body": "Type sizes and corner radii come only from the token scales (--fs-*, --r-*). A literal font-size or border-radius in a rule is drift — snap it to the nearest step.", "section": "typography" },
       { "name": "The Faceplate Rule", "body": "Resting surfaces are flat and defined by seams, never by shadow. A drop shadow means 'this floats above the faceplate,' so it may appear only on overlays.", "section": "elevation" }
     ],
     "dos": [
       "Do color exclusively through the tokens — accent #5b8cff, accent-2 #36d399, danger #ff5c6c, caution #f5a623.",
+      "Do size type and corners only from the scale tokens — --fs-xs..--fs-2xl and --r-sm..--r-full; snap any new value to the nearest step.",
       "Do keep resting surfaces flat and define structure with 1px border seams; reserve shadows for overlays.",
       "Do set live machine readings in mono; keep prose and labels in system sans.",
       "Do pair every status color with a label or icon — status must never rely on hue alone.",
