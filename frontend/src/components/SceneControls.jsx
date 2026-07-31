@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import Icon from "./Icon.jsx";
 import { api } from "../api.js";
 import CropModal from "./CropModal.jsx";
 
@@ -34,7 +35,7 @@ export default function SceneControls({ sc, cols, rows, media, music, fonts }) {
   return (
     <>
     <div className="scene-controls">
-      <h3>🎛 Scene</h3>
+      <h3><Icon name="sliders" /> Scene</h3>
       <div className="actions">
         <button
           className="primary"
@@ -95,13 +96,13 @@ export default function SceneControls({ sc, cols, rows, media, music, fonts }) {
       <div className="settings-section">
         <h4>Add widget</h4>
         <div className="widget-add">
-          <button onClick={() => sc.addWidget("image", cols, rows)}>🖼 Image</button>
-          <button onClick={() => sc.addWidget("clock", cols, rows)}>🕐 Clock</button>
-          <button onClick={() => sc.addWidget("text", cols, rows)}>T Text</button>
-          <button onClick={() => sc.addWidget("weather", cols, rows)}>☀ Weather</button>
-          <button onClick={() => sc.addWidget("value", cols, rows)}># Value</button>
-          <button onClick={() => sc.addWidget("music", cols, rows)}>💿 Album art</button>
-          <button onClick={() => sc.addWidget("nowplaying", cols, rows)}>♪ Now playing</button>
+          <button onClick={() => sc.addWidget("image", cols, rows)}><Icon name="image" /> Image</button>
+          <button onClick={() => sc.addWidget("clock", cols, rows)}><Icon name="clock" /> Clock</button>
+          <button onClick={() => sc.addWidget("text", cols, rows)}><Icon name="text" /> Text</button>
+          <button onClick={() => sc.addWidget("weather", cols, rows)}><Icon name="weather" /> Weather</button>
+          <button onClick={() => sc.addWidget("value", cols, rows)}><Icon name="value" /> Value</button>
+          <button onClick={() => sc.addWidget("music", cols, rows)}><Icon name="music" /> Album art</button>
+          <button onClick={() => sc.addWidget("nowplaying", cols, rows)}><Icon name="nowplaying" /> Now playing</button>
         </div>
         <p className="field-hint">Or click a library image below to drop it in.</p>
       </div>
@@ -397,7 +398,7 @@ export default function SceneControls({ sc, cols, rows, media, music, fonts }) {
               </div>
             </>
           )}
-          <button onClick={() => sc.removeWidget(sel.id)}>Remove {sel.type}</button>
+          <button className="danger" onClick={() => sc.removeWidget(sel.id)}>Remove {sel.type}</button>
         </div>
       )}
 

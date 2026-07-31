@@ -1,6 +1,5 @@
 import React from "react";
-
-const ICON = { clock: "🕐", text: "T", weather: "☀", value: "#", image: "🖼", music: "💿", nowplaying: "♪" };
+import Icon from "./Icon.jsx";
 
 function layerLabel(w, media) {
   if (w.type === "image") {
@@ -54,54 +53,59 @@ export default function SceneSidebar({ sc, cols, rows, media }) {
             className={`layer-row ${w.id === sc.selId ? "sel" : ""} ${w.hidden ? "hidden" : ""}`}
             onClick={() => sc.setSelId(w.id)}
           >
-            <span className="layer-icon">{ICON[w.type] || "?"}</span>
+            <span className="layer-icon" aria-hidden="true"><Icon name={w.type} size={14} /></span>
             <span className="layer-name" title={layerLabel(w, media)}>
               {layerLabel(w, media)}
             </span>
             <button
               className="layer-btn"
               title="Bring forward"
+              aria-label={`Bring ${layerLabel(w, media)} forward`}
               onClick={(e) => {
                 e.stopPropagation();
                 sc.moveWidget(w.id, "forward");
               }}
             >
-              ▲
+              <Icon name="chevronUp" size={14} />
             </button>
             <button
               className="layer-btn"
               title="Send backward"
+              aria-label={`Send ${layerLabel(w, media)} backward`}
               onClick={(e) => {
                 e.stopPropagation();
                 sc.moveWidget(w.id, "backward");
               }}
             >
-              ▼
+              <Icon name="chevronDown" size={14} />
             </button>
             <button
               className="layer-btn"
               title={w.hidden ? "Show" : "Hide"}
+              aria-label={`${w.hidden ? "Show" : "Hide"} ${layerLabel(w, media)}`}
+              aria-pressed={Boolean(w.hidden)}
               onClick={(e) => {
                 e.stopPropagation();
                 sc.toggleHidden(w.id);
               }}
             >
-              {w.hidden ? "🚫" : "👁"}
+              <Icon name={w.hidden ? "eyeOff" : "eye"} size={14} />
             </button>
             <button
               className="layer-btn danger"
               title="Delete"
+              aria-label={`Delete ${layerLabel(w, media)}`}
               onClick={(e) => {
                 e.stopPropagation();
                 sc.removeWidget(w.id);
               }}
             >
-              ×
+              <Icon name="close" size={14} />
             </button>
           </div>
         ))}
         <div className="layer-row bg" title="Background (always at the back)">
-          <span className="layer-icon">▦</span>
+          <span className="layer-icon" aria-hidden="true"><Icon name="layers" size={14} /></span>
           <span className="layer-name">Background — {bgLabel}</span>
         </div>
       </div>

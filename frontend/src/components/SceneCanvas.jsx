@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { clamp } from "./Resizer.jsx";
 import { MUSIC_PROVIDERS } from "./SceneControls.jsx";
+import Icon from "./Icon.jsx";
 
-const ICON = { clock: "🕐", text: "T", weather: "☀", value: "#", image: "🖼", music: "💿", nowplaying: "♪" };
 const CORNERS = ["nw", "ne", "sw", "se"];
 const EDGES = ["n", "s", "w", "e"];
 // Tiles hold scaling art (aspect-lockable). Text widgets hold a text box that
@@ -377,7 +377,7 @@ export default function SceneCanvas({ sc, cols, rows, music, media }) {
               onContextMenu={(e) => openMenu(e, w)}
               title={isWindowed(w) ? "drag to pan · edges move · corners crop" : `${w.type} (${w.x},${w.y})`}
             >
-              <span className="box-badge" aria-hidden="true">{ICON[w.type] || "?"}</span>
+              <span className="box-badge" aria-hidden="true"><Icon name={w.type} size={11} /></span>
               {isSel && (
                 <button
                   className="box-actions"
