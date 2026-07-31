@@ -1997,7 +1997,7 @@ button:active:not(:disabled) {
   transform: translateX(-50%) scaleX(0);
   width: 26px;
   height: 2px;
-  border-radius: 0 0 2px 2px;
+  border-radius: 0 0 var(--r-sm) var(--r-sm);
   background: var(--accent);
   transition: transform 0.16s ease;
 }
