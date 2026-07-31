@@ -459,7 +459,15 @@ export default function SceneControls({ sc, cols, rows, media, music, fonts }) {
             <button className="linklike" onClick={() => sc.loadNamed(name)}>
               {name}
             </button>
-            <button className="tiny-x" title="Delete" onClick={() => sc.deleteNamed(name)}>
+            <button
+              className="tiny-x"
+              title={`Delete saved scene "${name}"`}
+              aria-label={`Delete saved scene ${name}`}
+              onClick={() => {
+                if (window.confirm(`Delete saved scene "${name}"? This can't be undone.`))
+                  sc.deleteNamed(name);
+              }}
+            >
               ×
             </button>
           </div>

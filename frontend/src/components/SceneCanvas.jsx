@@ -209,6 +209,32 @@ export default function SceneCanvas({ sc, cols, rows, music, media }) {
     <div className="scene-workspace">
       <div className="editor-head">
         <h2>Scene</h2>
+        <div className="editor-undo">
+          <button
+            className="icon-btn"
+            onClick={sc.undo}
+            disabled={!sc.canUndo}
+            title="Undo (Ctrl+Z)"
+            aria-label="Undo"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 14 4 9l5-5" />
+              <path d="M4 9h11a5 5 0 0 1 0 10h-1" />
+            </svg>
+          </button>
+          <button
+            className="icon-btn"
+            onClick={sc.redo}
+            disabled={!sc.canRedo}
+            title="Redo (Ctrl+Shift+Z)"
+            aria-label="Redo"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m15 14 5-5-5-5" />
+              <path d="M20 9H9a5 5 0 0 0 0 10h1" />
+            </svg>
+          </button>
+        </div>
         <label className="checkbox" title="Lock aspect ratio when resizing images / album art">
           <input
             type="checkbox"

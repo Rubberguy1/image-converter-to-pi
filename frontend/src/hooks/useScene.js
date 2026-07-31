@@ -67,13 +67,100 @@ export function useScene(onToast, onChanged, media = []) {
   const sceneRef = useRef(scene);
   sceneRef.current = scene;
 
+  // --- undo / redo history ---
+  // Rapid edits (a drag, typing) coalesce into ONE step: we record the previous
+  // scene into `past` only after edits settle (debounced), so undo reverts a
+  // whole gesture, not every pixel.
+  const past = useRef([]);
+  const future = useRef([]);
+  const lastCommitted = useRef(scene);
+  const applying = useRef(false); // true = the next setScene is an undo/redo/load, don't record it
+  const histTimer = useRef(null);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+  const syncFlags = () => {
+    setCanUndo(past.current.length > 0);
+    setCanRedo(future.current.length > 0);
+  };
+  const resetHistory = (s) => {
+    past.current = [];
+    future.current = [];
+    lastCommitted.current = s;
+    applying.current = true;
+    syncFlags();
+  };
+  // Commit any pending (debounced) edit as one history step right now.
+  const flushHistory = () => {
+    if (histTimer.current) {
+      clearTimeout(histTimer.current);
+      histTimer.current = null;
+    }
+    if (sceneRef.current !== lastCommitted.current) {
+      past.current.push(lastCommitted.current);
+      if (past.current.length > 60) past.current.shift();
+      future.current = [];
+      lastCommitted.current = sceneRef.current;
+    }
+  };
+  const undo = useCallback(() => {
+    flushHistory();
+    if (!past.current.length) {
+      syncFlags();
+      return;
+    }
+    const prev = past.current.pop();
+    future.current.push(lastCommitted.current);
+    applying.current = true;
+    lastCommitted.current = prev;
+    setScene(prev);
+    setSelId(null);
+    syncFlags();
+  }, []);
+  const redo = useCallback(() => {
+    if (!future.current.length) return;
+    const next = future.current.pop();
+    past.current.push(lastCommitted.current);
+    applying.current = true;
+    lastCommitted.current = next;
+    setScene(next);
+    setSelId(null);
+    syncFlags();
+  }, []);
+
   const refreshSaved = () =>
     api.listScenes().then((r) => setSaved(r.scenes || [])).catch(() => {});
 
   useEffect(() => {
-    api.getScene().then((r) => r.scene && setScene(withBoxes(r.scene))).catch(() => {});
+    api.getScene()
+      .then((r) => {
+        if (r.scene) {
+          const s = withBoxes(r.scene);
+          resetHistory(s);
+          setScene(s);
+        }
+      })
+      .catch(() => {});
     refreshSaved();
   }, []);
+
+  // Record edits into history, coalescing rapid changes into a single undo step.
+  useEffect(() => {
+    if (applying.current) {
+      applying.current = false;
+      return;
+    }
+    if (histTimer.current) clearTimeout(histTimer.current);
+    histTimer.current = setTimeout(() => {
+      if (sceneRef.current !== lastCommitted.current) {
+        past.current.push(lastCommitted.current);
+        if (past.current.length > 60) past.current.shift();
+        future.current = [];
+        lastCommitted.current = sceneRef.current;
+        syncFlags();
+      }
+    }, 450);
+    return () => clearTimeout(histTimer.current);
+  }, [scene]);
 
   const fetchPreview = useCallback(async () => {
     try {
@@ -128,7 +215,9 @@ export function useScene(onToast, onChanged, media = []) {
     loadNamed: async (name) => {
       try {
         const r = await api.loadNamedScene(name);
-        setScene(withBoxes(r.scene));
+        const s = withBoxes(r.scene);
+        resetHistory(s);
+        setScene(s);
         setSelId(null);
         onToast(`Loaded "${name}"`);
         onChanged && onChanged();
@@ -204,9 +293,18 @@ export function useScene(onToast, onChanged, media = []) {
         widgets: s.widgets.map((w) => (w.id === id ? { ...w, hidden: !w.hidden } : w)),
       })),
     removeWidget: (id) => {
+      const removed = sceneRef.current.widgets.find((w) => w.id === id);
       setScene((s) => ({ ...s, widgets: s.widgets.filter((w) => w.id !== id) }));
       setSelId((p) => (p === id ? null : p));
+      onToast(removed ? `Removed ${removed.type}` : "Widget removed", false, {
+        label: "Undo",
+        onClick: undo,
+      });
     },
+    undo,
+    redo,
+    canUndo,
+    canRedo,
     save: async (weather) => {
       try {
         await api.saveScene(scene);

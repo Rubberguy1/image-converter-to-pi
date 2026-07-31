@@ -39,9 +39,12 @@ export default function App() {
     localStorage.setItem("pp.leftWidth", leftWidth);
   }, [leftWidth]);
 
-  const showToast = useCallback((msg, isError = false) => {
-    setToast({ msg, isError });
-    setTimeout(() => setToast(null), 3000);
+  const toastTimer = useRef(null);
+  const showToast = useCallback((msg, isError = false, action = null) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast({ msg, isError, action });
+    // Give an actionable toast (e.g. Undo) longer to be clicked.
+    toastTimer.current = setTimeout(() => setToast(null), action ? 6000 : 3000);
   }, []);
 
   const refreshStatus = useCallback(async () => {
@@ -62,6 +65,26 @@ export default function App() {
   }, [showToast]);
 
   const sc = useScene(showToast, refreshStatus, items);
+
+  // Undo / redo for scene edits (ignored while typing in a field).
+  useEffect(() => {
+    const onKey = (e) => {
+      const t = e.target;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable))
+        return;
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const k = e.key.toLowerCase();
+      if (k === "z") {
+        e.preventDefault();
+        e.shiftKey ? sc.redo() : sc.undo();
+      } else if (k === "y") {
+        e.preventDefault();
+        sc.redo();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [sc.undo, sc.redo]);
 
   // Remember a remote Pi in this browser once we've successfully reached it.
   const remembered = useRef("");
@@ -218,7 +241,20 @@ export default function App() {
       )}
 
       {toast && (
-        <div className={`toast ${toast.isError ? "error" : ""}`}>{toast.msg}</div>
+        <div className={`toast ${toast.isError ? "error" : ""}`}>
+          <span>{toast.msg}</span>
+          {toast.action && (
+            <button
+              className="toast-action"
+              onClick={() => {
+                toast.action.onClick();
+                setToast(null);
+              }}
+            >
+              {toast.action.label}
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

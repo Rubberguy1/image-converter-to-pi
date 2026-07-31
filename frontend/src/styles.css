@@ -1395,7 +1395,50 @@ button.danger { color: var(--danger); }
   padding: 0.6rem 1.1rem;
   border-radius: var(--r-lg);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 .toast.error {
   border-color: var(--danger);
+}
+.toast-action {
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+  padding: 0.15rem 0.55rem;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+}
+.toast-action:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* undo/redo icon buttons in the scene editor head */
+.editor-undo {
+  display: flex;
+  gap: 0.25rem;
+}
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--muted);
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+}
+.icon-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.icon-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
