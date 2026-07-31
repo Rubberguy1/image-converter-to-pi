@@ -981,6 +981,36 @@ button.danger { color: var(--danger); }
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
   z-index: 9;
 }
+.scene-box:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  z-index: 10;
+}
+/* keyboard/touch-reachable actions button on the selected widget */
+.box-actions {
+  position: absolute;
+  top: -9px;
+  right: -9px;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  z-index: 10;
+}
+.box-actions:hover {
+  filter: brightness(1.1);
+}
+.box-actions:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
+}
 .scene-box:active {
   cursor: grabbing;
 }
@@ -1055,15 +1085,23 @@ button.danger { color: var(--danger); }
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
   font-size: var(--fs-md);
 }
-.scene-context-menu li {
+.scene-context-menu .menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
   padding: 0.4rem 0.6rem;
+  border: none;
   border-radius: var(--r-sm);
-  cursor: pointer;
+  background: transparent;
   color: var(--text);
+  font-size: var(--fs-md);
+  cursor: pointer;
 }
-.scene-context-menu li:hover {
-  background: var(--accent, #5b8cff);
+.scene-context-menu .menu-item:hover,
+.scene-context-menu .menu-item:focus-visible {
+  background: var(--accent);
   color: #fff;
+  outline: none;
 }
 .scene-context-menu .menu-head {
   padding: 0.3rem 0.6rem 0.15rem;
@@ -1087,8 +1125,9 @@ button.danger { color: var(--danger); }
 .scene-context-menu .menu-sep:hover {
   background: var(--border);
 }
-.scene-context-menu .danger:hover {
-  background: #c0392b;
+.scene-context-menu .menu-item.danger:hover,
+.scene-context-menu .menu-item.danger:focus-visible {
+  background: var(--danger);
   color: #fff;
 }
 .scene-controls {

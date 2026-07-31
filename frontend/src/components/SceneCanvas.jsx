@@ -27,6 +27,7 @@ export default function SceneCanvas({ sc, cols, rows, music, media }) {
   const ref = useRef(null);
   const [uniform, setUniform] = useState(true);
   const [menu, setMenu] = useState(null); // { x, y, id }
+  const menuRef = useRef(null);
 
   const boxOf = (w) =>
     widgetBox(w, { w: Math.max(8, cols - w.x), h: Math.max(8, rows - w.y) });
@@ -43,6 +44,14 @@ export default function SceneCanvas({ sc, cols, rows, music, media }) {
       window.removeEventListener("pointerdown", close);
       window.removeEventListener("keydown", key);
     };
+  }, [menu]);
+
+  // Move focus into the actions menu when it opens so it's keyboard-operable.
+  useEffect(() => {
+    if (menu && menuRef.current) {
+      const first = menuRef.current.querySelector(".menu-item");
+      if (first) first.focus();
+    }
   }, [menu]);
 
   function grid(ev, rect) {
@@ -203,6 +212,94 @@ export default function SceneCanvas({ sc, cols, rows, music, media }) {
     setMenu({ x: e.clientX - rect.left, y: e.clientY - rect.top, id: w.id });
   }
 
+  // Open the same actions menu without a right-click (the ⋯ button / keyboard),
+  // anchored to the widget's box so touch and keyboard users can reach it.
+  function openMenuForBox(w, boxEl) {
+    sc.setSelId(w.id);
+    const rect = ref.current.getBoundingClientRect();
+    const br = boxEl.getBoundingClientRect();
+    setMenu({ x: br.left - rect.left + 6, y: br.top - rect.top + 6, id: w.id });
+  }
+
+  function closeMenu() {
+    const id = menu?.id;
+    setMenu(null);
+    if (id && ref.current) {
+      const box = ref.current.querySelector(`[data-wid="${id}"]`);
+      if (box) box.focus(); // return focus to the widget after the menu closes
+    }
+  }
+
+  // Keyboard on a focused widget: arrows nudge (Shift = ×10), Enter opens the
+  // actions menu, Delete removes, Escape deselects.
+  function onBoxKey(e, w) {
+    if (e.target !== e.currentTarget) return; // ignore keys from child controls
+    const step = e.shiftKey ? 10 : 1;
+    const box = boxOf(w);
+    const nudge = (dx, dy) => {
+      e.preventDefault();
+      sc.updateWidget(w.id, {
+        x: clamp(w.x + dx, -Math.round(box.w) + 1, cols - 1),
+        y: clamp(w.y + dy, -Math.round(box.h) + 1, rows - 1),
+      });
+    };
+    if (e.key === "ArrowLeft") nudge(-step, 0);
+    else if (e.key === "ArrowRight") nudge(step, 0);
+    else if (e.key === "ArrowUp") nudge(0, -step);
+    else if (e.key === "ArrowDown") nudge(0, step);
+    else if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      openMenuForBox(w, e.currentTarget);
+    } else if (e.key === "Delete" || e.key === "Backspace") {
+      e.preventDefault();
+      sc.removeWidget(w.id);
+    } else if (e.key === "Escape") {
+      e.currentTarget.blur();
+      sc.setSelId(null);
+    }
+  }
+
+  // Arrow-key roving between menu items.
+  function onMenuKey(e) {
+    if (e.key === "Escape") {
+      closeMenu();
+      return;
+    }
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    e.preventDefault();
+    const items = [...menuRef.current.querySelectorAll(".menu-item")];
+    const i = items.indexOf(document.activeElement);
+    const next = e.key === "ArrowDown" ? i + 1 : i - 1;
+    items[(next + items.length) % items.length]?.focus();
+  }
+
+  // The actions available for a widget, as a data model (rendered as a menu).
+  function menuItems(w) {
+    const items = [];
+    if (isTile(w)) {
+      items.push({ head: "Scaling" });
+      items.push({ label: "Fill", on: w.config?.fit === "cover", run: () => setFit(w, "cover") });
+      items.push({ label: "Integer scale", on: w.config?.fit === "integer", run: () => setFit(w, "integer") });
+      items.push({ label: "1:1 (native)", on: w.config?.fit === "center", run: () => setFit(w, "center") });
+      items.push({ sep: true });
+    }
+    if ((w.type === "music" || w.type === "nowplaying") && music) {
+      items.push({ head: "Source (player)" });
+      for (const p of MUSIC_PROVIDERS)
+        items.push({ label: p.l, on: music.provider === p.v, run: () => music.setProvider(p.v) });
+      items.push({ sep: true });
+    }
+    items.push({ head: "Layer" });
+    items.push({ label: "Bring to front", run: () => sc.moveWidget(w.id, "front") });
+    items.push({ label: "Bring forward", run: () => sc.moveWidget(w.id, "forward") });
+    items.push({ label: "Send backward", run: () => sc.moveWidget(w.id, "backward") });
+    items.push({ label: "Send to back", run: () => sc.moveWidget(w.id, "back") });
+    items.push({ sep: true });
+    items.push({ label: w.hidden ? "Show" : "Hide", run: () => sc.toggleHidden(w.id) });
+    items.push({ label: `Remove ${w.type}`, danger: true, run: () => sc.removeWidget(w.id) });
+    return items;
+  }
+
   const menuWidget = menu && sc.scene.widgets.find((w) => w.id === menu.id);
 
   return (
@@ -244,7 +341,7 @@ export default function SceneCanvas({ sc, cols, rows, music, media }) {
           Uniform scale
         </label>
         <span className="muted small">
-          {cols}×{rows} · {sc.scene.enabled ? "showing" : "not shown"} · drag to move · right-click for options
+          {cols}×{rows} · {sc.scene.enabled ? "showing" : "not shown"} · drag or arrow-keys to move · ⋯ / right-click for actions
         </span>
       </div>
       <div className="scene-canvas" ref={ref} style={{ "--panel-aspect": cols / rows }}>
@@ -259,6 +356,12 @@ export default function SceneCanvas({ sc, cols, rows, music, media }) {
           return (
             <div
               key={w.id}
+              data-wid={w.id}
+              tabIndex={0}
+              role="button"
+              aria-label={`${w.type} widget at ${w.x}, ${w.y}${w.hidden ? " (hidden)" : ""}${
+                isSel ? " (selected)" : ""
+              }. Arrow keys move, Enter for actions.`}
               className={`scene-box ${isSel ? "sel" : ""} ${w.hidden ? "hidden" : ""} ${
                 isWindowed(w) ? "windowed" : ""
               }`}
@@ -268,11 +371,31 @@ export default function SceneCanvas({ sc, cols, rows, music, media }) {
                 width: `${(box.w / cols) * 100}%`,
                 height: `${(box.h / rows) * 100}%`,
               }}
+              onFocus={() => sc.setSelId(w.id)}
+              onKeyDown={(e) => onBoxKey(e, w)}
               onPointerDown={(e) => startBody(e, w)}
               onContextMenu={(e) => openMenu(e, w)}
               title={isWindowed(w) ? "drag to pan · edges move · corners crop" : `${w.type} (${w.x},${w.y})`}
             >
-              <span className="box-badge">{ICON[w.type] || "?"}</span>
+              <span className="box-badge" aria-hidden="true">{ICON[w.type] || "?"}</span>
+              {isSel && (
+                <button
+                  className="box-actions"
+                  aria-label="Widget actions"
+                  title="Actions"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openMenuForBox(w, e.currentTarget.closest(".scene-box"));
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <circle cx="5" cy="12" r="2" />
+                    <circle cx="12" cy="12" r="2" />
+                    <circle cx="19" cy="12" r="2" />
+                  </svg>
+                </button>
+              )}
               {isSel && isWindowed(w) &&
                 EDGES.map((edge) => (
                   <span
@@ -295,71 +418,37 @@ export default function SceneCanvas({ sc, cols, rows, music, media }) {
         })}
 
         {menu && menuWidget && (
-          <ul
+          <div
+            ref={menuRef}
             className="scene-context-menu"
+            role="menu"
+            aria-label={`${menuWidget.type} widget actions`}
             style={{ left: menu.x, top: menu.y }}
             onPointerDown={(e) => e.stopPropagation()}
+            onKeyDown={onMenuKey}
           >
-            {isTile(menuWidget) && (
-              <>
-                <li className="menu-head">Scaling</li>
-                <li onClick={() => { setFit(menuWidget, "cover"); setMenu(null); }}>
-                  Fill{menuWidget.config?.fit === "cover" ? " ✓" : ""}
-                </li>
-                <li onClick={() => { setFit(menuWidget, "integer"); setMenu(null); }}>
-                  Integer scale{menuWidget.config?.fit === "integer" ? " ✓" : ""}
-                </li>
-                <li onClick={() => { setFit(menuWidget, "center"); setMenu(null); }}>
-                  1:1 (native){menuWidget.config?.fit === "center" ? " ✓" : ""}
-                </li>
-                <li className="menu-sep" />
-              </>
+            {menuItems(menuWidget).map((it, i) =>
+              it.head ? (
+                <div key={i} className="menu-head">{it.head}</div>
+              ) : it.sep ? (
+                <div key={i} className="menu-sep" />
+              ) : (
+                <button
+                  key={i}
+                  type="button"
+                  role="menuitem"
+                  className={`menu-item ${it.danger ? "danger" : ""}`}
+                  onClick={() => {
+                    it.run();
+                    closeMenu();
+                  }}
+                >
+                  {it.label}
+                  {it.on ? " ✓" : ""}
+                </button>
+              )
             )}
-            {(menuWidget.type === "music" || menuWidget.type === "nowplaying") && music && (
-              <>
-                <li className="menu-head">Source (player)</li>
-                {MUSIC_PROVIDERS.map((p) => (
-                  <li
-                    key={p.v}
-                    onClick={() => {
-                      music.setProvider(p.v);
-                      setMenu(null);
-                    }}
-                  >
-                    {p.l}
-                    {music.provider === p.v ? " ✓" : ""}
-                  </li>
-                ))}
-                <li className="menu-sep" />
-              </>
-            )}
-            <li className="menu-head">Layer</li>
-            <li onClick={() => { sc.moveWidget(menuWidget.id, "front"); setMenu(null); }}>
-              Bring to front
-            </li>
-            <li onClick={() => { sc.moveWidget(menuWidget.id, "forward"); setMenu(null); }}>
-              Bring forward
-            </li>
-            <li onClick={() => { sc.moveWidget(menuWidget.id, "backward"); setMenu(null); }}>
-              Send backward
-            </li>
-            <li onClick={() => { sc.moveWidget(menuWidget.id, "back"); setMenu(null); }}>
-              Send to back
-            </li>
-            <li className="menu-sep" />
-            <li onClick={() => { sc.toggleHidden(menuWidget.id); setMenu(null); }}>
-              {menuWidget.hidden ? "Show" : "Hide"}
-            </li>
-            <li
-              className="danger"
-              onClick={() => {
-                sc.removeWidget(menuWidget.id);
-                setMenu(null);
-              }}
-            >
-              Remove {menuWidget.type}
-            </li>
-          </ul>
+          </div>
         )}
       </div>
     </div>
