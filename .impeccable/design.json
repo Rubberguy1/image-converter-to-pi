@@ -1,37 +1,44 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-07-26T00:00:00Z",
+  "generatedAt": "2026-07-31T00:00:00Z",
   "title": "Design System: Pixel Pusher",
   "extensions": {
     "colorMeta": {
-      "bg":      { "role": "neutral", "displayName": "Void",      "canonical": "#0e0f13", "tonalRamp": ["#0e0f13","#14161b","#1a1c23","#23262f","#2e323d","#464b57","#6b7280","#9aa0ac"] },
-      "panel":   { "role": "neutral", "displayName": "Faceplate", "canonical": "#1a1c23", "tonalRamp": ["#0e0f13","#14161b","#1a1c23","#23262f","#2e323d","#464b57","#6b7280","#9aa0ac"] },
-      "panel-2": { "role": "neutral", "displayName": "Module",    "canonical": "#23262f", "tonalRamp": ["#0e0f13","#14161b","#1a1c23","#23262f","#2e323d","#464b57","#6b7280","#9aa0ac"] },
-      "border":  { "role": "neutral", "displayName": "Seam",      "canonical": "#2e323d", "tonalRamp": ["#0e0f13","#14161b","#1a1c23","#23262f","#2e323d","#464b57","#6b7280","#9aa0ac"] },
-      "text":    { "role": "neutral", "displayName": "Text",      "canonical": "#e7e9ee", "tonalRamp": ["#2e323d","#464b57","#6b7280","#9aa0ac","#c4c8d0","#e7e9ee","#f2f3f6","#ffffff"] },
-      "muted":   { "role": "neutral", "displayName": "Muted",     "canonical": "#9aa0ac", "tonalRamp": ["#2e323d","#464b57","#6b7280","#9aa0ac","#c4c8d0","#e7e9ee","#f2f3f6","#ffffff"] },
-      "accent":   { "role": "primary",   "displayName": "Signal Blue", "canonical": "#5b8cff", "tonalRamp": ["#0c1428","#132347","#1b3266","#2f4f96","#4771c9","#5b8cff","#89abff","#c2d3ff"] },
-      "accent-2": { "role": "secondary", "displayName": "Ready Green", "canonical": "#36d399", "tonalRamp": ["#06231a","#0a3a2b","#0f5540","#158058","#20a877","#36d399","#79e3bd","#bff2df"] },
-      "danger":   { "role": "secondary", "displayName": "Fault Red",   "canonical": "#ff5c6c", "tonalRamp": ["#2c0d11","#4a151c","#6d1f29","#9c2c39","#d3414f","#ff5c6c","#ff96a0","#ffccd2"] },
-      "caution":  { "role": "tertiary",  "displayName": "Caution Amber","canonical": "#f5a623", "tonalRamp": ["#2e1e05","#4a3009","#6d470c","#9c6712","#c6851b","#f5a623","#f9c264","#fde3b0"] }
+      "bg":      { "role": "neutral", "displayName": "Ink",         "canonical": "#0b0d13", "tonalRamp": ["#0b0d13","#141824","#1e2432","#2b3242","#3a4356","#5a6478","#8b93a6","#c6ccd6"] },
+      "panel":   { "role": "neutral", "displayName": "Board",       "canonical": "#141824", "tonalRamp": ["#0b0d13","#141824","#1e2432","#2b3242","#3a4356","#5a6478","#8b93a6","#c6ccd6"] },
+      "panel-2": { "role": "neutral", "displayName": "Raised Board","canonical": "#1e2432", "tonalRamp": ["#0b0d13","#141824","#1e2432","#2b3242","#3a4356","#5a6478","#8b93a6","#c6ccd6"] },
+      "border":  { "role": "neutral", "displayName": "Seam",        "canonical": "#2b3242", "tonalRamp": ["#0b0d13","#141824","#1e2432","#2b3242","#3a4356","#5a6478","#8b93a6","#c6ccd6"] },
+      "text":    { "role": "neutral", "displayName": "Warm White",  "canonical": "#f3efe4", "tonalRamp": ["#2b3242","#3a4356","#5a6478","#8b93a6","#c6ccd6","#e6e2d6","#f3efe4","#ffffff"] },
+      "muted":   { "role": "neutral", "displayName": "Dim Label",   "canonical": "#8b93a6", "tonalRamp": ["#2b3242","#3a4356","#5a6478","#8b93a6","#c6ccd6","#e6e2d6","#f3efe4","#ffffff"] },
+      "accent":    { "role": "primary",   "displayName": "Signal Amber", "canonical": "#ffb62e", "tonalRamp": ["#2a1c00","#4a3200","#6d4b06","#9c6c10","#c68e1a","#ffb62e","#ffcd6b","#ffe6b3"] },
+      "on-accent": { "role": "primary",   "displayName": "On-Amber Ink", "canonical": "#17130a", "tonalRamp": ["#17130a","#241d0f","#3a2f18","#544224","#7a5f33","#a17f45","#c8a05a","#e8c98a"] },
+      "accent-2":  { "role": "secondary", "displayName": "On-Time Green","canonical": "#33d6a6", "tonalRamp": ["#062a1f","#0a4634","#0f6b4f","#158a67","#22a884","#33d6a6","#79e8c6","#bff4e2"] },
+      "danger":    { "role": "secondary", "displayName": "Alert Red",    "canonical": "#ff5d5d", "tonalRamp": ["#2c0d0d","#4a1515","#6d1f1f","#9c2c2c","#d34141","#ff5d5d","#ff9696","#ffcccc"] },
+      "caution":   { "role": "tertiary",  "displayName": "Caution Amber","canonical": "#f5a623", "tonalRamp": ["#2e1e05","#4a3009","#6d470c","#9c6712","#c6851b","#f5a623","#f9c264","#fde3b0"] }
     },
     "typographyMeta": {
-      "stat":    { "displayName": "Stat",    "purpose": "The single large data readout (a monitor number) and icon glyphs (1.4rem). Prominent data, not a heading." },
-      "title":   { "displayName": "Title",   "purpose": "Top page/editor title (1.15rem)." },
-      "heading": { "displayName": "Heading", "purpose": "Section titles and panel headers (1rem); carried by weight, not size." },
+      "stat":    { "displayName": "Stat",    "purpose": "The single large data readout (a monitor number) and icon glyphs (1.4rem)." },
+      "title":   { "displayName": "Title",   "purpose": "Header wordmark, mobile greeting, page/editor titles (1.15rem)." },
+      "heading": { "displayName": "Heading", "purpose": "Section headings / panel headers (1rem)." },
       "body":    { "displayName": "Body",    "purpose": "Default UI text, button labels, values (0.85rem)." },
-      "label":   { "displayName": "Label",   "purpose": "Field labels, hints, secondary meta (0.75rem)." },
-      "micro":   { "displayName": "Micro",   "purpose": "Tiny tags, thumbnail badges, addresses (0.65rem) — the quiet silk-screen layer." },
-      "mono":    { "displayName": "Readout", "purpose": "Live machine readings only — Hz, ms, watts, CPU%, counts, versions (mono, 0.75rem)." }
+      "label":   { "displayName": "Label",   "purpose": "Field + section labels, uppercase tracked (0.75rem, +0.07em)." },
+      "micro":   { "displayName": "Micro",   "purpose": "Tiny tags, thumbnail badges, bottom-nav labels (0.65rem)." },
+      "mono":    { "displayName": "Readout", "purpose": "Live machine numbers — Hz, ms, W, CPU%, brightness, counts (mono, tabular)." }
     },
     "shadows": [
-      { "name": "overlay-high", "value": "0 20px 60px rgba(0,0,0,0.5)",  "purpose": "The settings modal — floats well above the faceplate." },
-      { "name": "overlay-low",  "value": "0 8px 24px rgba(0,0,0,0.45)",  "purpose": "Popovers, dropdowns, floating menus." },
-      { "name": "focus-ring",   "value": "0 0 0 1px #5b8cff inset",      "purpose": "Inset accent ring on the focused/active control — not depth, a lit key." }
+      { "name": "overlay-high", "value": "0 20px 60px rgba(0,0,0,0.5)",  "purpose": "The settings modal." },
+      { "name": "overlay-mid",  "value": "0 14px 36px rgba(0,0,0,0.55)", "purpose": "Header dropdowns / mobile bottom-sheets." },
+      { "name": "overlay-low",  "value": "0 8px 24px rgba(0,0,0,0.45)",  "purpose": "Popovers, the toast." },
+      { "name": "focus-ring",   "value": "0 0 0 1px #ffb62e inset",      "purpose": "Inset amber ring on the focused control — a lit key, not depth." },
+      { "name": "live-glow",    "value": "0 0 8px color-mix(in srgb, #33d6a6 70%, transparent)", "purpose": "The on-air green dot — the only glow, meaning 'live'." }
     ],
     "motion": [
-      { "name": "fast",  "value": "0.12s", "purpose": "Snappy state feedback (background, opacity)." },
-      { "name": "state", "value": "0.15s", "purpose": "Border-color / background transitions on hover and focus." }
+      { "name": "state",  "value": "0.14s ease", "purpose": "Button/tab state transitions (background, border, color)." },
+      { "name": "press",  "value": "0.05s ease", "purpose": "Light 1px depress on :active." },
+      { "name": "view-in","value": "0.18s ease-out", "purpose": "Mobile tab entrance (fade + rise); gated by prefers-reduced-motion." }
+    ],
+    "breakpoints": [
+      { "name": "mobile", "value": "820px", "purpose": "At/under this, the app switches to the bottom-nav mobile shell." }
     ]
   },
   "components": [
@@ -39,92 +46,92 @@
       "name": "Primary Button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "The single lit action in a given context.",
-      "html": "<button class=\"ds-btn-primary\">Start syncing</button>",
-      "css": ".ds-btn-primary { background: #5b8cff; color: #fff; border: 1px solid #5b8cff; border-radius: 6px; padding: 0.5rem 0.9rem; font: 500 0.85rem system-ui, sans-serif; cursor: pointer; transition: background 0.15s, filter 0.15s; } .ds-btn-primary:hover { filter: brightness(1.08); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 2px #0e0f13, 0 0 0 4px #5b8cff; }"
+      "description": "The one lit action in a context — filled amber with dark ink text.",
+      "html": "<button class=\"ds-btn-primary\">Show on panel</button>",
+      "css": ".ds-btn-primary { background: #ffb62e; color: #17130a; border: 1px solid #ffb62e; border-radius: 6px; padding: 0.5rem 0.9rem; font: 600 0.85rem system-ui, sans-serif; cursor: pointer; transition: filter 0.14s, transform 0.05s; } .ds-btn-primary:hover { filter: brightness(1.05); } .ds-btn-primary:active { transform: translateY(1px); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 2px #0b0d13, 0 0 0 4px #ffb62e; }"
     },
     {
       "name": "Default Button",
       "kind": "button",
       "refersTo": "button",
-      "description": "Quiet control at rest; lights its border on approach.",
-      "html": "<button class=\"ds-btn\">Check again</button>",
-      "css": ".ds-btn { background: #23262f; color: #e7e9ee; border: 1px solid #2e323d; border-radius: 6px; padding: 0.5rem 0.9rem; font: 400 0.85rem system-ui, sans-serif; cursor: pointer; transition: border-color 0.15s; } .ds-btn:hover { border-color: #5b8cff; } .ds-btn:focus-visible { outline: none; box-shadow: 0 0 0 1px #5b8cff inset; }"
-    },
-    {
-      "name": "Danger Button",
-      "kind": "button",
-      "refersTo": "button-danger",
-      "description": "Ghost control for destructive actions.",
-      "html": "<button class=\"ds-btn-danger\">Remove</button>",
-      "css": ".ds-btn-danger { background: #23262f; color: #ff5c6c; border: 1px solid #2e323d; border-radius: 6px; padding: 0.5rem 0.9rem; font: 400 0.85rem system-ui, sans-serif; cursor: pointer; transition: border-color 0.15s; } .ds-btn-danger:hover { border-color: #ff5c6c; }"
+      "description": "Quiet board control; lights its border amber on hover.",
+      "html": "<button class=\"ds-btn\">Turn off</button>",
+      "css": ".ds-btn { background: #1e2432; color: #f3efe4; border: 1px solid #2b3242; border-radius: 6px; padding: 0.5rem 0.9rem; font: 400 0.85rem system-ui, sans-serif; cursor: pointer; transition: border-color 0.14s, transform 0.05s; } .ds-btn:hover { border-color: #ffb62e; } .ds-btn:active { transform: translateY(1px); } .ds-btn:focus-visible { outline: none; box-shadow: 0 0 0 1px #ffb62e inset; }"
     },
     {
       "name": "Text Input",
       "kind": "input",
       "refersTo": "input",
-      "description": "Module-fill field that lights an inset accent ring on focus.",
-      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"http://192.168.1.50:8000\" />",
-      "css": ".ds-input { width: 100%; background: #23262f; color: #e7e9ee; border: 1px solid #2e323d; border-radius: 6px; padding: 0.45rem; font: 400 0.85rem system-ui, sans-serif; } .ds-input::placeholder { color: #9aa0ac; } .ds-input:focus { outline: none; box-shadow: 0 0 0 1px #5b8cff inset; border-color: #5b8cff; }"
+      "description": "Raised-board field that lights an inset amber ring on focus.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"e.g. Clock\" />",
+      "css": ".ds-input { width: 100%; background: #1e2432; color: #f3efe4; border: 1px solid #2b3242; border-radius: 6px; padding: 0.5rem 0.6rem; font: 400 0.85rem system-ui, sans-serif; } .ds-input::placeholder { color: #8b93a6; } .ds-input:focus { outline: none; border-color: #ffb62e; box-shadow: 0 0 0 1px #ffb62e inset; }"
     },
     {
       "name": "Tab (active)",
       "kind": "nav",
       "refersTo": "tab-active",
-      "description": "Text-only tab; the 2px accent underline is the single lit indicator of location.",
-      "html": "<div class=\"ds-tabs\"><button class=\"ds-tab\">Panel</button><button class=\"ds-tab ds-tab-active\">Notifications</button><button class=\"ds-tab\">Updates</button></div>",
-      "css": ".ds-tabs { display: flex; gap: 0.3rem; border-bottom: 1px solid #2e323d; } .ds-tab { background: none; border: none; border-bottom: 2px solid transparent; color: #9aa0ac; padding: 0.4rem 0.7rem; font: 400 0.85rem system-ui, sans-serif; cursor: pointer; } .ds-tab:hover { color: #e7e9ee; } .ds-tab-active { color: #e7e9ee; border-bottom-color: #5b8cff; }"
+      "description": "Text tab; a 2px amber underline is the lit indicator of location.",
+      "html": "<div class=\"ds-tabs\"><button class=\"ds-tab\">Panel</button><button class=\"ds-tab ds-tab-active\">Music</button><button class=\"ds-tab\">WLED</button></div>",
+      "css": ".ds-tabs { display: flex; gap: 0.3rem; border-bottom: 1px solid #2b3242; } .ds-tab { background: none; border: none; border-bottom: 2px solid transparent; color: #8b93a6; padding: 0.4rem 0.7rem; font: 400 0.85rem system-ui, sans-serif; cursor: pointer; transition: color 0.14s, border-color 0.14s; } .ds-tab:hover { color: #f3efe4; } .ds-tab-active { color: #f3efe4; border-bottom-color: #ffb62e; }"
     },
     {
-      "name": "Status LED",
+      "name": "Bottom Nav",
+      "kind": "nav",
+      "refersTo": "navbar-item-active",
+      "description": "Mobile bottom tab bar; active item is amber with a short indicator bar.",
+      "html": "<nav class=\"ds-nav\"><button class=\"ds-nav-btn\">Home</button><button class=\"ds-nav-btn ds-nav-active\">Editor</button><button class=\"ds-nav-btn\">Scenes</button><button class=\"ds-nav-btn\">Settings</button></nav>",
+      "css": ".ds-nav { display: flex; border-top: 1px solid #2b3242; background: #141824; } .ds-nav-btn { flex: 1; position: relative; padding: 0.55rem 0; background: none; border: none; color: #8b93a6; font: 500 0.62rem system-ui, sans-serif; letter-spacing: 0.05em; text-transform: uppercase; cursor: pointer; } .ds-nav-btn::before { content: \"\"; position: absolute; top: 0; left: 50%; transform: translateX(-50%) scaleX(0); width: 26px; height: 2px; border-radius: 0 0 4px 4px; background: #ffb62e; transition: transform 0.16s ease; } .ds-nav-active { color: #ffb62e; } .ds-nav-active::before { transform: translateX(-50%) scaleX(1); }"
+    },
+    {
+      "name": "On-Air LED",
       "kind": "custom",
       "refersTo": "status-led",
-      "description": "Signature element: a 9px circle that reports state by color, always beside a label.",
-      "html": "<span class=\"ds-led-row\"><span class=\"ds-led ds-led-on\"></span> Valheim <span class=\"ds-led-meta\">3/10 · Ashlands</span></span>",
-      "css": ".ds-led-row { display: inline-flex; align-items: center; gap: 0.5rem; color: #e7e9ee; font: 400 0.8rem system-ui, sans-serif; } .ds-led { width: 9px; height: 9px; border-radius: 50%; background: #6b7280; } .ds-led-on { background: #36d399; box-shadow: 0 0 6px #36d39988; } .ds-led-off { background: #ff5c6c; } .ds-led-meta { color: #9aa0ac; font-size: 0.72rem; }"
+      "description": "Signature 9px status dot; green + soft glow means live on the panel.",
+      "html": "<span class=\"ds-led-row\"><span class=\"ds-led ds-led-live\"></span> On air <span class=\"ds-led-dim\">64×64</span></span>",
+      "css": ".ds-led-row { display: inline-flex; align-items: center; gap: 0.4rem; color: #f3efe4; font: 600 0.75rem system-ui, sans-serif; text-transform: uppercase; letter-spacing: 0.06em; } .ds-led { width: 9px; height: 9px; border-radius: 50%; background: #2b3242; } .ds-led-live { background: #33d6a6; box-shadow: 0 0 8px color-mix(in srgb, #33d6a6 70%, transparent); } .ds-led-dim { margin-left: 0.4rem; color: #8b93a6; text-transform: none; }"
     },
     {
-      "name": "Readout Badge",
-      "kind": "chip",
+      "name": "Board Card",
+      "kind": "card",
       "refersTo": "card",
-      "description": "Compact module-fill badge; live machine numbers set in mono.",
-      "html": "<span class=\"ds-readout\">⚙ 2.6ms · 72% cpu · ld 0.75</span>",
-      "css": ".ds-readout { display: inline-block; background: #23262f; border: 1px solid #2e323d; border-radius: 8px; padding: 0.2rem 0.5rem; color: #9aa0ac; font: 400 0.72rem ui-monospace, monospace; }"
+      "description": "Rounded board tile for the mobile Home dashboard; flat, no resting shadow.",
+      "html": "<div class=\"ds-card\">Brightness <span class=\"ds-readout\">70%</span></div>",
+      "css": ".ds-card { display: flex; align-items: center; justify-content: space-between; background: #141824; border: 1px solid #2b3242; border-radius: 12px; padding: 1rem; color: #f3efe4; font: 500 0.75rem system-ui, sans-serif; text-transform: uppercase; letter-spacing: 0.06em; } .ds-readout { font: 400 0.75rem ui-monospace, monospace; font-variant-numeric: tabular-nums; text-transform: none; }"
     }
   ],
   "narrative": {
-    "northStar": "The Synth Rack",
-    "overview": "Pixel Pusher looks like the front of a well-made piece of dark studio hardware — a eurorack module or a lighting console — that happens to live in a browser. The near-black canvas is the anodized faceplate; hairline borders are the seams between modules; and saturated color appears only as status LEDs and lit controls, never as decoration. The physical LED wall is the real output, so the interface deliberately stays dim and recessive: the glowing panel preview, album art, and status lights are the brightest things on screen. The controls themselves are precise and utilitarian — instrument-grade — because this is an Operate surface where the operator is composing scenes and tuning hardware. Personality comes from the faceplate and the LEDs, not from flourish on the buttons. Depth is flat by doctrine: modules sit coplanar, separated by 1px seams, and the only things that float are transient overlays.",
+    "northStar": "The Signal Board",
+    "overview": "Pixel Pusher looks like a warm LED departure board — the polished console cousin of the physical wall it drives. The ground is a deep ink you'd see behind unlit pixels, textured by a faint LED dot-matrix so every surface reads as a board at rest. A single signage amber is the one signal color: it lights the primary action, the focus ring, the active tab, the on-screen indicators — and nothing else. Text is a warm lit-white, never cold. It is emphatically not the cold near-black dev-dashboard it replaced, and not generic white-SaaS. The interface is calm and legible because the operator is doing a job, but warm and approachable because a stranger has to understand it too. On desktop it is a dense three-pane console; on phone it becomes a native bottom-nav app with the live panel as the hero. Live machine numbers are tabular mono, small labels are uppercase tracked, and depth is flat — board tiles and hairline seams, with shadows floating only transient overlays.",
     "keyCharacteristics": [
-      "Near-black faceplate; cool blue-gray neutrals; color reserved for meaning.",
-      "Saturated hues behave like LEDs — indicators and actions only.",
-      "Flat modules divided by hairline seams; shadows float overlays only.",
-      "Dense, compact, system-font UI with mono for live machine readings.",
-      "Recessive by design so the panel content and previews are what glow."
+      "Deep ink ground under a faint amber LED dot-matrix — the signature.",
+      "One warm signage amber, used only as signal (action / focus / active / status).",
+      "Warm lit-white text; green 'on-time' and red 'alert' for state.",
+      "Flat board tiles and hairline seams; shadows float overlays only.",
+      "Tabular-mono readouts; uppercase tracked labels.",
+      "Mobile is a bottom-nav app (Home / Editor / Scenes / Settings), canvas-first."
     ],
     "rules": [
-      { "name": "The LED Rule", "body": "Saturated color appears only as indicators and actions — status dots, the primary button, focus rings, the active tab, highlighted live values. It never fills a large surface; on any screen the accent covers well under 10% of the pixels.", "section": "colors" },
-      { "name": "The One-White Rule", "body": "Body and UI text is the cool near-white Text (#e7e9ee). Pure #ffffff is reserved for the label on top of a filled accent button.", "section": "colors" },
-      { "name": "The Readout Rule", "body": "Anything that reports live hardware/machine state is set in mono; everything else is system-sans. If it's a number the device is measuring right now, it's mono.", "section": "typography" },
-      { "name": "The Scale Rule", "body": "Type sizes and corner radii come only from the token scales (--fs-*, --r-*). A literal font-size or border-radius in a rule is drift — snap it to the nearest step.", "section": "typography" },
-      { "name": "The Faceplate Rule", "body": "Resting surfaces are flat and defined by seams, never by shadow. A drop shadow means 'this floats above the faceplate,' so it may appear only on overlays.", "section": "elevation" }
+      { "name": "The Signal Rule", "body": "Amber appears only as signal — the primary action, focus, the active tab/nav, and lit indicators. It never fills a large surface; on any screen it covers well under 10% of the pixels.", "section": "colors" },
+      { "name": "The Warm-White Rule", "body": "Reading text is Warm White (#f3efe4), not pure white. Pure white survives only as a scrim label on a black photo overlay. Text on amber uses On-Amber Ink (#17130a).", "section": "colors" },
+      { "name": "The Readout Rule", "body": "Anything reporting live hardware/machine state is mono with tabular-nums; everything else is system-sans.", "section": "typography" },
+      { "name": "The Scale Rule", "body": "Type sizes and corner radii come only from the token scales (--fs-*, --r-*). A literal font-size or border-radius is drift.", "section": "typography" },
+      { "name": "The Board Rule", "body": "Resting surfaces are flat, defined by seams or tile borders, never by shadow. A drop shadow means 'this floats above the board,' so it appears only on overlays; the only glow is the live on-air dot.", "section": "elevation" }
     ],
     "dos": [
-      "Do color exclusively through the tokens — accent #5b8cff, accent-2 #36d399, danger #ff5c6c, caution #f5a623.",
-      "Do size type and corners only from the scale tokens — --fs-xs..--fs-2xl and --r-sm..--r-full; snap any new value to the nearest step.",
-      "Do keep resting surfaces flat and define structure with 1px border seams; reserve shadows for overlays.",
-      "Do set live machine readings in mono; keep prose and labels in system sans.",
-      "Do pair every status color with a label or icon — status must never rely on hue alone.",
-      "Do keep controls quiet at rest and let the accent appear only on interaction.",
-      "Do default to 6px radius; reserve perfect circles for indicators."
+      "Do color through the tokens only — accent #ffb62e, accent-2 #33d6a6, danger #ff5d5d, caution #f5a623; text on amber is --on-accent #17130a.",
+      "Do size type and corners only from the scale tokens (--fs-*, --r-*); snap to the nearest step.",
+      "Do keep the LED dot-matrix as the resting ground and surfaces flat — seams/tile borders define structure; shadows float only overlays.",
+      "Do set live machine numbers in tabular mono; keep small labels uppercase and tracked.",
+      "Do pair every status color with a label or icon, and keep a visible amber focus ring on every control.",
+      "Do design mobile as the bottom-nav app with the live panel as the hero and >=42px touch targets."
     ],
     "donts": [
-      "Don't hand-pick near-duplicate hexes (#4ea1ff, #5fd08a, #ff7a7a have crept in — migrate them to the tokens).",
-      "Don't fill large surfaces or headers with a saturated accent.",
-      "Don't add resting drop shadows to cards or panels.",
-      "Don't use pure #ffffff for reading text; that's #e7e9ee.",
-      "Don't introduce a large display/hero type tier.",
-      "Don't center the settings modal vertically or let it balloon — top-aligned and ~460px."
+      "Don't put white text on amber (use --on-accent), and don't use pure #ffffff for reading text (use --text).",
+      "Don't fill large surfaces or headers with the amber accent — it must stay a signal (<10% of a screen).",
+      "Don't add resting drop shadows to cards/tiles; the only glow is the live on-air dot.",
+      "Don't write a literal font-size or border-radius — use the --fs-* / --r-* tokens.",
+      "Don't reintroduce emoji as icons — use the monochrome SVG set.",
+      "Don't revert mobile to stacked desktop panes; it is a bottom-nav app."
     ]
   }
 }
