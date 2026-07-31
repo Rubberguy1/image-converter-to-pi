@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import Icon from "./Icon.jsx";
+import { api } from "../api.js";
 
 // The Scenes tab: save the current composition as a named preset, and load or
 // delete your saved scenes.
@@ -48,20 +49,32 @@ export default function MobileScenes({ sc, onToast, goEditor }) {
           No saved scenes yet. Compose one in the Editor, then save it here.
         </p>
       )}
-      <div className="mscene-list">
+      <div className="mscene-grid">
         {sc.saved.map((nm) => (
-          <div className="card mscene-card" key={nm}>
-            <span className="mscene-name">{nm}</span>
-            <div className="mscene-actions">
-              <button className="primary" onClick={() => load(nm)}>Load</button>
+          <div className="card mscene-tile" key={nm}>
+            <button
+              className="mscene-thumb"
+              onClick={() => load(nm)}
+              title={`Load "${nm}"`}
+              aria-label={`Load ${nm}`}
+            >
+              <img
+                src={api.sceneThumbUrl(nm)}
+                alt={`Preview of ${nm}`}
+                loading="lazy"
+                onError={(e) => e.currentTarget.classList.add("failed")}
+              />
+            </button>
+            <div className="mscene-foot">
+              <span className="mscene-name">{nm}</span>
               <button
-                className="danger"
+                className="mscene-del"
                 aria-label={`Delete ${nm}`}
                 onClick={() => {
                   if (window.confirm(`Delete "${nm}"? This can't be undone.`)) sc.deleteNamed(nm);
                 }}
               >
-                <Icon name="close" size={16} />
+                <Icon name="close" size={15} />
               </button>
             </div>
           </div>

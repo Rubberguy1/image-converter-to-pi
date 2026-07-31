@@ -38,3 +38,10 @@ backend/certs/
 .DS_Store
 Thumbs.db
 *.swp
+
+# AI assistant tooling — local design skill + hooks, not part of the app.
+# (DESIGN.md and the tracked .impeccable/{config,design}.json sidecar stay in.)
+.agents/
+.claude/
+.codex/
+.impeccable/critique/

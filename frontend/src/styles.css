@@ -12,6 +12,10 @@
   --danger: #ff5d5d;     /* alert red */
   --caution: #f5a623;
   --dot: rgba(255, 182, 46, 0.05); /* faint LED dot-matrix */
+  /* one specific superfamily, bundled — sans for UI, mono for live readings */
+  --font-sans: "Geist Variable", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --range-track: color-mix(in srgb, var(--text) 16%, transparent); /* unfilled slider rail — warm lit-white, faded */
   /* type scale (role steps) */
   --fs-xs: 0.65rem;
   --fs-sm: 0.75rem;
@@ -31,14 +35,102 @@
   box-sizing: border-box;
 }
 
+/* Form controls don't inherit font by default — force the one family everywhere. */
+input,
+select,
+textarea,
+button {
+  font-family: inherit;
+}
+
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  font-family: var(--font-sans);
   color: var(--text);
   /* the signature: a faint LED dot-matrix under everything, like an unlit board */
   background-color: var(--bg);
   background-image: radial-gradient(var(--dot) 1px, transparent 1.6px);
   background-size: 7px 7px;
+}
+
+/* ---- Sliders: one amber-rail look everywhere ----------------------------
+   Filled rail left of a hollow amber ring knob. WebKit has no native progress
+   pseudo, so the fill is a gradient driven by --_fill (set by RangeInput);
+   Firefox paints ::-moz-range-progress for free. */
+.range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 20px;               /* room for the ring to overhang the rail */
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  vertical-align: middle;
+}
+.range::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: var(--r-full);
+  background: linear-gradient(
+    to right,
+    var(--accent) 0 var(--_fill, 0%),
+    var(--range-track) var(--_fill, 0%) 100%
+  );
+}
+.range::-moz-range-track {
+  height: 6px;
+  border-radius: var(--r-full);
+  background: var(--range-track);
+}
+.range::-moz-range-progress {
+  height: 6px;
+  border-radius: var(--r-full);
+  background: var(--accent);
+}
+.range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -5px;           /* centre the 16px ring on the 6px rail */
+  border-radius: var(--r-full);
+  background: var(--bg);
+  border: 3px solid var(--accent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.range::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: var(--r-full);
+  background: var(--bg);
+  border: 3px solid var(--accent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.range:hover::-webkit-slider-thumb {
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.range:hover::-moz-range-thumb {
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.range:active::-webkit-slider-thumb {
+  transform: scale(1.12);
+}
+.range:active::-moz-range-thumb {
+  transform: scale(1.12);
+}
+.range:focus-visible {
+  outline: none;
+}
+.range:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.range:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.range:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Signage labels: small, uppercase, tracked — silk-screen plate lettering. */
@@ -49,10 +141,18 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.07em;
 }
-/* Live machine numbers read as a board readout. */
+/* Live machine numbers read as a board readout — mono, tabular. */
 .mon-num,
 .perf-badge,
 .res-badge strong,
+.control .val,
+.scene-controls .val,
+.status-right .val,
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+/* Keep number alignment steady in the status bar without restyling its labels. */
 .status-left,
 .status-right {
   font-variant-numeric: tabular-nums;
@@ -106,6 +206,20 @@ header {
   border-radius: var(--r-full);
   background: var(--accent-2);
 }
+.hbtn-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 1;
+}
+.hbtn-caret {
+  opacity: 0.65;
+  transition: transform 0.18s ease;
+}
+.hbtn.open .hbtn-caret {
+  transform: rotate(180deg);
+  opacity: 1;
+}
 .hdropdown-menu.hidden {
   display: none;
 }
@@ -114,7 +228,7 @@ header {
   top: calc(100% + 6px);
   right: 0;
   z-index: 50;
-  width: 300px;
+  width: 320px;
   max-height: 72vh;
   overflow-y: auto;
   background: var(--panel);
@@ -122,6 +236,13 @@ header {
   border-radius: var(--r-lg);
   padding: 0.9rem 1rem;
   box-shadow: 0 14px 36px rgba(0, 0, 0, 0.55);
+  animation: hd-in 0.14s ease both;
+}
+@keyframes hd-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
 }
 .hdropdown-menu .music-panel,
 .hdropdown-menu .wled-panel,
@@ -771,7 +892,7 @@ button:disabled {
   overflow-y: auto;
 }
 .update-changes li {
-  font-family: var(--mono, ui-monospace, monospace);
+  font-family: var(--font-mono);
 }
 .settings-section .actions {
   display: flex;
@@ -1616,17 +1737,32 @@ button.danger { color: var(--danger); }
     min-height: 42px;
   }
 
-  /* overlays go full-width / bottom-sheet */
+  /* Menus expand inline as an accordion — every option in the page flow, no
+     floating window. Button + panel read as one card when open. */
+  .hbtn {
+    justify-content: space-between;
+  }
   .hdropdown-menu {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    top: auto;
-    width: auto;
-    max-height: 78vh;
-    border-radius: var(--r-xl) var(--r-xl) 0 0;
-    border-bottom: none;
+    position: static;
+    width: 100%;
+    max-height: none;
+    overflow-y: visible;
+    margin-top: 0;
+    padding: 0.2rem 0.9rem 0.9rem;
+    border-top: none;
+    border-radius: 0 0 var(--r-lg) var(--r-lg);
+    box-shadow: none;
+    animation: none;
+  }
+  .hdropdown.open .hbtn {
+    border-color: var(--accent);
+    border-bottom-color: var(--border);
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+  .hdropdown.open .hdropdown-menu {
+    border-color: var(--accent);
+    border-top: none;
   }
   /* Settings becomes a full-screen sheet with a sticky header + tabs. */
   .modal-backdrop {
@@ -1756,14 +1892,45 @@ button.danger { color: var(--danger); }
   flex-direction: column;
   gap: 1rem;
 }
-.mhome-greet {
+/* Branded board-header — logo tile + wordmark + a compact device readout,
+   seated on a hairline seam like the desktop header. */
+.mhome-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.1rem 0.1rem 0.8rem;
+  border-bottom: 1px solid var(--border);
 }
-.mhome-hi {
-  font-size: var(--fs-xl);
+.brandmark {
+  flex: none;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 22%, transparent));
+}
+.brand-word {
+  margin: 0;
+  font-size: var(--fs-2xl);
   font-weight: 700;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+.brand-word span {
+  color: var(--accent);
+}
+.brand-stat {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--panel);
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.brand-stat em {
+  font-style: normal;
+  color: var(--accent);
 }
 .mhome-panel {
   display: flex;
@@ -1833,7 +2000,7 @@ button.danger { color: var(--danger); }
 }
 .mhome-tiles .hbtn {
   width: 100%;
-  justify-content: center;
+  justify-content: space-between;
   min-height: 46px;
 }
 
@@ -1867,16 +2034,48 @@ button.danger { color: var(--danger); }
   border-radius: var(--r-md);
   padding: 0 0.6rem;
 }
-.mscene-list {
+.mscene-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.6rem;
+}
+.mscene-tile {
+  padding: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
 }
-.mscene-card {
+/* Preview thumbnail — tap to load. The scene renders opaque, so the panel
+   colour only shows as a placeholder while the PNG loads. */
+.mscene-thumb {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel-2);
+  cursor: pointer;
+  line-height: 0;
+}
+.mscene-thumb img {
+  width: 100%;
+  height: auto;
+  display: block;
+  image-rendering: pixelated;
+  transition: transform 0.12s ease;
+}
+.mscene-thumb:active img {
+  transform: scale(0.97);
+}
+.mscene-thumb img.failed {
+  visibility: hidden;
+  min-height: 72px;
+}
+.mscene-foot {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.7rem 0.9rem;
+  gap: 0.4rem;
+  padding: 0.5rem 0.35rem 0.5rem 0.6rem;
 }
 .mscene-name {
   flex: 1;
@@ -1885,12 +2084,19 @@ button.danger { color: var(--danger); }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.mscene-actions {
-  display: flex;
-  gap: 0.4rem;
+.mscene-del {
+  min-height: 36px;
+  min-width: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
 }
-.mscene-actions button {
-  min-height: 40px;
+.mscene-del:hover {
+  color: var(--danger);
 }
 
 /* Settings rendered inline as a page (not a modal) */

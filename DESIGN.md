@@ -15,43 +15,43 @@ colors:
   caution: "#f5a623"
 typography:
   stat:
-    fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
+    fontFamily: "Geist Variable, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
     fontSize: "1.4rem"
     fontWeight: 700
     lineHeight: 1.1
     letterSpacing: "normal"
   title:
-    fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
+    fontFamily: "Geist Variable, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
     fontSize: "1.15rem"
     fontWeight: 700
     lineHeight: 1.2
     letterSpacing: "normal"
   heading:
-    fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
+    fontFamily: "Geist Variable, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
     fontSize: "1rem"
     fontWeight: 600
     lineHeight: 1.3
     letterSpacing: "normal"
   body:
-    fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
+    fontFamily: "Geist Variable, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
     fontSize: "0.85rem"
     fontWeight: 400
     lineHeight: 1.4
     letterSpacing: "normal"
   label:
-    fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
+    fontFamily: "Geist Variable, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
     fontSize: "0.75rem"
     fontWeight: 500
     lineHeight: 1.3
     letterSpacing: "0.07em"
   micro:
-    fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
+    fontFamily: "Geist Variable, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
     fontSize: "0.65rem"
     fontWeight: 500
     lineHeight: 1.3
     letterSpacing: "0.05em"
   mono:
-    fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace"
+    fontFamily: "Geist Mono Variable, ui-monospace, SFMono-Regular, Menlo, monospace"
     fontSize: "0.75rem"
     fontWeight: 400
     lineHeight: 1.3

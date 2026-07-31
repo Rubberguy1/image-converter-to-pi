@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { api } from "../api.js";
 import Icon from "./Icon.jsx";
+import RangeInput from "./RangeInput.jsx";
 import PanelLayout from "./PanelLayout.jsx";
 import UpdatesPanel from "./UpdatesPanel.jsx";
 import NotificationsPanel from "./NotificationsPanel.jsx";
@@ -371,8 +372,7 @@ function Field({ field, value, settings, onChange }) {
           ))}
         </select>
       ) : f.type === "slider" ? (
-        <input
-          type="range"
+        <RangeInput
           min={f.min}
           max={f.max}
           value={value}

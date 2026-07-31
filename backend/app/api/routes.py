@@ -683,6 +683,23 @@ async def delete_named_scene(req: Request, name: str):
     return {"ok": delete_named(name)}
 
 
+@router.get("/scenes/{name}/preview")
+async def named_scene_preview(req: Request, name: str):
+    """A static PNG thumbnail of a saved scene, for the presets grid. Rendered
+    on demand (always current) — the first frame of the scene's render."""
+    from ..scene import load_named
+
+    scene = load_named(name)
+    if scene is None:
+        raise HTTPException(404, "scene not found")
+    img = _scene(req).render(scene, at_ms=0)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    resp = Response(content=buf.getvalue(), media_type="image/png")
+    resp.headers["Cache-Control"] = "max-age=60"  # refreshes if a preset is re-saved
+    return resp
+
+
 @router.post("/scene/preview")
 async def scene_preview(req: Request, body: dict):
     """Render a (possibly unsaved) scene for the editor's live preview. Returns an

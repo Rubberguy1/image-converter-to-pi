@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import Icon from "./Icon.jsx";
+import RangeInput from "./RangeInput.jsx";
 import { api } from "../api.js";
 import CropModal from "./CropModal.jsx";
 
@@ -516,8 +517,7 @@ function Slider({ label, value, min = 0.1, max = 3, onChange }) {
       <label>
         {label} <span className="val">{Number(value).toFixed(2)}×</span>
       </label>
-      <input
-        type="range"
+      <RangeInput
         min={min}
         max={max}
         step="0.05"

@@ -105,6 +105,7 @@ export const api = {
   saveNamedScene: (name) => send("/api/scenes/save", "POST", { name }),
   loadNamedScene: (name) => send("/api/scenes/load", "POST", { name }),
   deleteNamedScene: (name) => send(`/api/scenes/${encodeURIComponent(name)}`, "DELETE"),
+  sceneThumbUrl: (name) => apiUrl(`/api/scenes/${encodeURIComponent(name)}/preview`),
 
   // Preview an image widget's tile at w×h with the given render settings.
   mediaTilePreviewUrl: (id, settings, w, h) =>

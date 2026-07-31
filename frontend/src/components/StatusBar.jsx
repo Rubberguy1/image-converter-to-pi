@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../api.js";
+import RangeInput from "./RangeInput.jsx";
 
 export default function StatusBar({ status, onChanged, onToast }) {
   const [brightness, setBrightness] = useState(status.matrix.brightness);
@@ -38,8 +39,7 @@ export default function StatusBar({ status, onChanged, onToast }) {
 
       <div className="status-right">
         <label>Brightness</label>
-        <input
-          type="range"
+        <RangeInput
           min="0"
           max="100"
           value={brightness}

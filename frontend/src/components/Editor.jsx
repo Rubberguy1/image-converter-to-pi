@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import Cropper from "react-easy-crop";
 import { api } from "../api.js";
 import Resizer, { clamp } from "./Resizer.jsx";
+import RangeInput from "./RangeInput.jsx";
 import PixelCropper from "./PixelCropper.jsx";
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
@@ -195,8 +196,7 @@ export default function Editor({ item, onPushed, onToast, pwmBits, panelAspect, 
               <label>
                 Zoom <span className="val">{zoom.toFixed(1)}×</span>
               </label>
-              <input
-                type="range"
+              <RangeInput
                 min="1"
                 max="12"
                 step="0.1"
@@ -299,8 +299,7 @@ function Slider({ label, value, min, max, onChange }) {
       <label>
         {label} <span className="val">{value.toFixed(2)}×</span>
       </label>
-      <input
-        type="range"
+      <RangeInput
         min={min}
         max={max}
         step="0.05"
