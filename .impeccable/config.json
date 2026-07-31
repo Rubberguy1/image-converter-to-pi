@@ -1,0 +1,110 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "design-system-color",
+        "value": "#000",
+        "createdAt": "2026-07-31T14:03:26.377Z",
+        "reason": "Intentional transparency scrim/shadow/overlay or #000/#fff primitive; not expressible in the opaque-hex token palette. User-confirmed."
+      },
+      {
+        "rule": "design-system-color",
+        "value": "#fff",
+        "createdAt": "2026-07-31T14:03:26.432Z",
+        "reason": "Intentional transparency scrim/shadow/overlay or #000/#fff primitive; not expressible in the opaque-hex token palette. User-confirmed."
+      },
+      {
+        "rule": "design-system-color",
+        "value": "rgba(0, 0, 0, 0.25)",
+        "createdAt": "2026-07-31T14:03:26.483Z",
+        "reason": "Intentional transparency scrim/shadow/overlay or #000/#fff primitive; not expressible in the opaque-hex token palette. User-confirmed."
+      },
+      {
+        "rule": "design-system-color",
+        "value": "rgba(0, 0, 0, 0.3)",
+        "createdAt": "2026-07-31T14:03:26.533Z",
+        "reason": "Intentional transparency scrim/shadow/overlay or #000/#fff primitive; not expressible in the opaque-hex token palette. User-confirmed."
+      },
+      {
+        "rule": "design-system-color",
+        "value": "rgba(0, 0, 0, 0.4)",
+        "createdAt": "2026-07-31T14:03:26.581Z",
+        "reason": "Intentional transparency scrim/shadow/overlay or #000/#fff primitive; not expressible in the opaque-hex token palette. User-confirmed."
+      },
+      {
+        "rule": "design-system-color",
+        "value": "rgba(0, 0, 0, 0.45)",
+        "createdAt": "2026-07-31T14:03:26.630Z",
+        "reason": "Intentional transparency scrim/shadow/overlay or #000/#fff primitive; not expressible in the opaque-hex token palette. User-confirmed."
+      },
+      {
+        "rule": "design-system-color",
+        "value": "rgba(0, 0, 0, 0.5)",
+        "createdAt": "2026-07-31T14:03:26.679Z",
+        "reason": "Intentional transparency scrim/shadow/overlay or #000/#fff primitive; not expressible in the opaque-hex token palette. User-confirmed."
+      },
+      {
+        "rule": "design-system-color",
+        "value": "rgba(0, 0, 0, 0.55)",
+        "createdAt": "2026-07-31T14:03:26.728Z",
+        "reason": "Intentional transparency scrim/shadow/overlay or #000/#fff primitive; not expressible in the opaque-hex token palette. User-confirmed."
+      },
+      {
+        "rule": "design-system-color",
+        "value": "rgba(0, 0, 0, 0.6)",
+        "createdAt": "2026-07-31T14:03:26.778Z",
+        "reason": "Intentional transparency scrim/shadow/overlay or #000/#fff primitive; not expressible in the opaque-hex token palette. User-confirmed."
+      },
+      {
+        "rule": "design-system-color",
+        "value": "rgba(0, 0, 0, 0.65)",
+        "createdAt": "2026-07-31T14:03:26.826Z",
+        "reason": "Intentional transparency scrim/shadow/overlay or #000/#fff primitive; not expressible in the opaque-hex token palette. User-confirmed."
+      },
+      {
+        "rule": "design-system-color",
+        "value": "rgba(0, 0, 0, 0.7)",
+        "createdAt": "2026-07-31T14:03:26.875Z",
+        "reason": "Intentional transparency scrim/shadow/overlay or #000/#fff primitive; not expressible in the opaque-hex token palette. User-confirmed."
+      },
+      {
+        "rule": "design-system-color",
+        "value": "rgba(255, 255, 255, 0.22)",
+        "createdAt": "2026-07-31T14:03:26.924Z",
+        "reason": "Intentional transparency scrim/shadow/overlay or #000/#fff primitive; not expressible in the opaque-hex token palette. User-confirmed."
+      },
+      {
+        "rule": "design-system-color",
+        "value": "rgba(255, 255, 255, 0.35)",
+        "createdAt": "2026-07-31T14:03:26.973Z",
+        "reason": "Intentional transparency scrim/shadow/overlay or #000/#fff primitive; not expressible in the opaque-hex token palette. User-confirmed."
+      },
+      {
+        "rule": "design-system-color",
+        "value": "rgba(255, 255, 255, 0.4)",
+        "createdAt": "2026-07-31T14:03:27.022Z",
+        "reason": "Intentional transparency scrim/shadow/overlay or #000/#fff primitive; not expressible in the opaque-hex token palette. User-confirmed."
+      },
+      {
+        "rule": "design-system-color",
+        "value": "rgba(91, 140, 255, 0.08)",
+        "createdAt": "2026-07-31T14:03:27.071Z",
+        "reason": "Intentional transparency scrim/shadow/overlay or #000/#fff primitive; not expressible in the opaque-hex token palette. User-confirmed."
+      },
+      {
+        "rule": "design-system-color",
+        "value": "rgba(245, 166, 35, 0.12)",
+        "createdAt": "2026-07-31T14:03:27.122Z",
+        "reason": "Intentional transparency scrim/shadow/overlay or #000/#fff primitive; not expressible in the opaque-hex token palette. User-confirmed."
+      },
+      {
+        "rule": "design-system-color",
+        "value": "rgba(20, 26, 40, 0.85)",
+        "createdAt": "2026-07-31T14:03:27.170Z",
+        "reason": "Intentional transparency scrim/shadow/overlay or #000/#fff primitive; not expressible in the opaque-hex token palette. User-confirmed."
+      }
+    ]
+  }
+}
