@@ -8,6 +8,7 @@ import logging
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 
 import httpx
 from PIL import Image, ImageDraw
@@ -15,6 +16,7 @@ from PIL import Image, ImageDraw
 from .. import perf
 from ..config import Settings
 from ..display import Player
+from ..sprites import SpriteRenderer, anchor_offset, draw_bubble, visible_chars
 from ..imaging import (
     Frame,
     RenderOptions,
@@ -26,7 +28,8 @@ from ..imaging import (
 )
 from ..library import LibraryStore
 from ..library.store import RenderSettings
-from .model import Scene, load_scene, save_scene
+from .model import Background, Scene, Widget, load_scene, save_scene
+from .pixelfont import get_font
 from .render import (
     box_for,
     draw_boxed_text,
@@ -41,6 +44,39 @@ log = logging.getLogger(__name__)
 
 _WEATHER_TTL = 600.0  # seconds between weather refreshes
 _OPEN_METEO = "https://api.open-meteo.com/v1/forecast"
+
+# Speech-bubble defaults (per widget, in config.bubble). Which clip plays for
+# which event lives on the sprite itself (its trigger list, set in the studio).
+_DEFAULT_BUBBLE = {
+    "enabled": True,
+    "notifications": True,   # present notifications as a speech bubble
+    "track": True,           # announce a new track ("♪ title / artist")
+    "track_seconds": 6.0,
+    "side": "auto",          # auto | left | right | above | below | custom (uses `box`)
+    "box": None,             # custom placement: {dx, dy, w, h} relative to the sprite's top-left
+    "style": "light",        # light (white bubble) | dark (black, white border)
+    "font": None,            # None = widget font
+    "cps": 18,               # typewriter speed, characters per second
+    "hold": 1.5,             # seconds the bubble lingers after the last character
+    "radius": 2,             # corner rounding in px (0 = square)
+    "tail": "auto",          # auto (faces the sprite) | left | right | top | bottom | none
+    "tail_at": None,         # 0..1 along that edge; None = aim at the sprite
+    "sample": "Hi!",         # shown in the editor preview so you can place it
+}
+
+
+@dataclass
+class _SpriteState:
+    """Per-widget runtime state (never persisted): which clip is playing and
+    since when, plus any explicit 'say' the API asked for."""
+    clip: str | None = None
+    clip_started: float = 0.0
+    say_text: str = ""
+    say_clip: str = ""
+    say_until: float = 0.0
+    # Speech bubble typewriter: the text being shown and when it started.
+    bubble_text: str = ""
+    bubble_started: float = 0.0
 
 
 def _opts_key(cfg: dict) -> tuple:
@@ -68,11 +104,20 @@ class SceneRunner:
         library: LibraryStore,
         settings: Settings,
         music=None,
+        sprites=None,
     ) -> None:
         self._player = player
         self._library = library
         self._settings = settings
         self._music = music  # MusicPoller — source for the "music" album-art widget
+        # Sprite sheets (the assistant's body) + a frame cache. The notification
+        # manager is attached after construction (it's built later in main.py).
+        self._sprites = sprites
+        self._sprite_renderer = SpriteRenderer(sprites) if sprites else None
+        self._sprite_states: dict[str, _SpriteState] = {}
+        self._notifications = None
+        self._last_track_key: str | None = None
+        self._track_changed_at = 0.0
         self.scene: Scene = load_scene()
         self._client = httpx.AsyncClient(timeout=8.0)
 
@@ -110,6 +155,11 @@ class SceneRunner:
         self._idle_interval = 0.5
         self._min_frame_ms: float | None = None
         self._task: asyncio.Task | None = None
+        # Music mode: a runtime override that dedicates the panel to fullscreen
+        # now-playing art, falling back to a clock when nothing plays. Rendered
+        # by the same compositor but never persisted, so it doesn't touch the
+        # user's saved scene.
+        self._music_mode = False
 
     # --- lifecycle ---
     async def start(self) -> None:
@@ -126,12 +176,34 @@ class SceneRunner:
         self._music_executor.shutdown(wait=False)
         self._player.clear_scene()
 
+    def attach_notifications(self, manager) -> None:
+        self._notifications = manager
+
     # --- API-facing ---
     def set_scene(self, scene: Scene) -> None:
         self.scene = scene
         save_scene(scene)
+        # Drop runtime state for sprites that are no longer in the scene.
+        keep = {w.id for w in scene.widgets}
+        self._sprite_states = {k: v for k, v in self._sprite_states.items() if k in keep}
         if not scene.enabled:
             self._player.clear_scene()
+
+    def say(self, text: str, clip: str = "", duration: float = 5.0, widget_id: str | None = None) -> int:
+        """Make the scene's sprite(s) say `text` (speech bubble) while playing
+        `clip` (default: the widget's notify reaction) for `duration` seconds.
+        Targets one widget by id, or every sprite widget. Returns the count."""
+        now = time.monotonic()
+        n = 0
+        for w in self.scene.widgets:
+            if w.type != "sprite" or (widget_id and w.id != widget_id):
+                continue
+            st = self._sprite_states.setdefault(w.id, _SpriteState())
+            st.say_text = (text or "").strip()
+            st.say_clip = clip or ""
+            st.say_until = now + max(0.5, float(duration))
+            n += 1
+        return n
 
     def set_enabled(self, enabled: bool) -> None:
         self.scene.enabled = enabled
@@ -142,12 +214,28 @@ class SceneRunner:
     def push_value(self, name: str, value) -> None:
         self._values[name] = value
 
+    def set_music_mode(self, on: bool) -> None:
+        """Turn the fullscreen music-mode override on or off. Turning it off
+        hands the panel back to the saved scene (or blanks it if disabled)."""
+        self._music_mode = bool(on)
+        if not self._music_mode and not self.scene.enabled:
+            self._player.clear_scene()
+        log.info("music mode %s", "ON" if self._music_mode else "OFF")
+
+    def music_mode(self) -> bool:
+        return self._music_mode
+
     def status(self) -> dict:
         return {
             "enabled": self.scene.enabled,
+            "music_mode": self._music_mode,
             "widgets": len(self.scene.widgets),
             "weather": self._weather,
             "values": self._values,
+            "sprites": {
+                wid: {"clip": st.clip, "saying": st.say_until > time.monotonic()}
+                for wid, st in self._sprite_states.items()
+            },
         }
 
     # --- loop ---
@@ -155,8 +243,15 @@ class SceneRunner:
         log_at = 0.0
         while True:
             try:
-                if self.scene.enabled:
+                if self._music_mode:
+                    self._set_banner_suppressed(False)
+                    self._min_frame_ms = None
+                    frame = self.render(self._music_mode_scene())
+                    self._player.set_scene(frame)
+                    await asyncio.sleep(self._tick_interval())
+                elif self.scene.enabled:
                     await self._maybe_refresh_weather()
+                    self._update_signals()
                     t0 = time.perf_counter()
                     frame = self._composite()
                     perf.composite.add((time.perf_counter() - t0) * 1000.0)
@@ -172,6 +267,7 @@ class SceneRunner:
                         )
                     await asyncio.sleep(self._tick_interval())
                 else:
+                    self._set_banner_suppressed(False)
                     await asyncio.sleep(0.5)
             except asyncio.CancelledError:
                 raise
@@ -219,6 +315,58 @@ class SceneRunner:
         self._min_frame_ms = None
         return self.render(self.scene)
 
+    # --- signals the sprites react to ---
+    def _update_signals(self) -> None:
+        """Once per live tick: detect track changes and decide whether a sprite
+        is presenting notifications (which hides the banner)."""
+        now = time.monotonic()
+        np = self._music.now_playing() if self._music else None
+        key = np.track_key if (np and np.playing) else None
+        if key != self._last_track_key:
+            self._last_track_key = key
+            if key:
+                self._track_changed_at = now
+        presenting = any(
+            w.type == "sprite" and not getattr(w, "hidden", False)
+            and (w.config or {}).get("sprite_id")
+            and self._bubble_cfg(w.config).get("enabled", True)
+            and self._bubble_cfg(w.config).get("notifications", True)
+            for w in self.scene.widgets
+        )
+        self._set_banner_suppressed(presenting)
+
+    def _set_banner_suppressed(self, on: bool) -> None:
+        if self._notifications is not None:
+            self._notifications.set_banner_suppressed(on)
+
+    @staticmethod
+    def _bubble_cfg(cfg: dict) -> dict:
+        return {**_DEFAULT_BUBBLE, **(cfg.get("bubble") or {})}
+
+    def _music_mode_scene(self) -> Scene:
+        """Build the music-mode scene for this tick: fullscreen album art when
+        something is playing, otherwise a big centred clock. Regenerated each
+        tick so it swaps the moment playback starts or stops."""
+        cw, ch = self._settings.content_size
+        np = self._music.now_playing() if self._music else None
+        art = self._music.art_bytes() if self._music else None
+        black = Background(type="color", color="#000000")
+
+        if np and np.playing and art:
+            widget = Widget(
+                id="mm-art", type="music", x=0, y=0,
+                config={"w": cw, "h": ch, "fit": "cover", "disc": False},
+            )
+        else:
+            size = max(8, round(ch * 0.42))
+            y = max(0, (ch - size) // 2 - 1)
+            widget = Widget(
+                id="mm-clock", type="clock", x=0, y=y,
+                color="#FFFFFF", size=size, align="center",
+                config={"w": cw, "h": ch - y, "format": "%H:%M"},
+            )
+        return Scene(enabled=True, background=black, widgets=[widget])
+
     def render(self, scene: Scene, at_ms: float | None = None) -> Image.Image:
         """Composite any scene at the panel content size (used live + for preview).
         `at_ms` overrides the animation clock so a whole loop can be rendered."""
@@ -235,6 +383,8 @@ class SceneRunner:
                     self._draw_music(base, widget, at_ms)
                 elif widget.type == "nowplaying":
                     self._draw_nowplaying(base, widget, cw, ch)
+                elif widget.type == "sprite":
+                    self._draw_sprite(base, widget, at_ms)
                 else:
                     draw_widget(base, widget, ctx, cw, ch)
             except Exception:
@@ -359,6 +509,204 @@ class SceneRunner:
         w, h = box_for(widget, cw, ch)
         draw_boxed_text(base, int(widget.x), int(widget.y), w, h, text,
                         hex_rgb(widget.color), font, scale, widget.align)
+
+    # --- sprites (the assistant) ---
+    def _note_anim(self, frame_ms: float, total_ms: float) -> None:
+        """Register an animation so the tick rate + preview loop cover it."""
+        self._min_frame_ms = frame_ms if self._min_frame_ms is None else min(self._min_frame_ms, frame_ms)
+        self._anim_total = max(self._anim_total, int(total_ms))
+
+    @staticmethod
+    def _value_matches(params: dict, values: dict) -> bool:
+        name = str(params.get("name") or "")
+        if not name or name not in values:
+            return False
+        v = values.get(name)
+        target = params.get("value")
+        op = str(params.get("op") or "==")
+        try:
+            a, b = float(v), float(target)
+        except (TypeError, ValueError):
+            a, b = str(v), str(target)
+            if op not in ("==", "!="):
+                return False
+        return {
+            "<": a < b, "<=": a <= b, ">": a > b, ">=": a >= b,
+            "==": a == b, "!=": a != b,
+        }.get(op, False)
+
+    @staticmethod
+    def _time_matches(params: dict) -> bool:
+        def hm(s, default):
+            try:
+                h, m = str(s or default).split(":")
+                return int(h) * 60 + int(m)
+            except (ValueError, AttributeError):
+                return None
+        start, end = hm(params.get("from"), "22:00"), hm(params.get("to"), "07:00")
+        if start is None or end is None:
+            return False
+        t = time.localtime()
+        cur = t.tm_hour * 60 + t.tm_min
+        if start <= end:
+            return start <= cur < end
+        return cur >= start or cur < end  # window wraps past midnight
+
+    def _sprite_intent(self, sp, cfg: dict, state: _SpriteState, now: float, preview: bool):
+        """Decide what the sprite should be doing this tick: (clip name, bubble
+        text). Walks the sprite's trigger list in priority order; the first
+        event that is happening wins. An explicit `say` is always honoured even
+        if the sprite has no say trigger (the API asked for it)."""
+        bub = self._bubble_cfg(cfg)
+        idle = sp.idle_clip or "idle"
+        bubbles = bool(bub.get("enabled", True))
+
+        if preview:
+            # The editor: idle clip + the sample bubble so it can be positioned.
+            return idle, (str(bub.get("sample") or "") if bubbles else "")
+
+        # Priority is by event kind (say > notification > track > music > value
+        # > time); among triggers of the same kind, the sprite's list order wins.
+        rank = {"say": 0, "notification": 1, "track": 2, "music": 3, "value": 4, "time": 5}
+        triggers = sorted(sp.triggers, key=lambda t: rank.get(t.event, 9))
+        by_event = {}
+        for t in triggers:
+            by_event.setdefault(t.event, t)
+
+        say_clip = ""
+        if state.say_until > now:
+            say_t = by_event.get("say")
+            say_clip = state.say_clip or (say_t.clip if say_t else "") or (by_event.get("notification").clip if by_event.get("notification") else "") or idle
+
+        np = self._music.now_playing() if self._music else None
+        playing = bool(np and np.playing)
+        cur = self._notifications.current() if self._notifications else None
+        music_clip = next((t.clip for t in triggers if t.event == "music" and t.clip), "")
+
+        for t in triggers:
+            ev = t.event
+            if ev == "say":
+                if say_clip:
+                    return say_clip, (state.say_text if bubbles else "")
+            elif ev == "notification":
+                if cur is not None and bub.get("notifications", True):
+                    parts = [p for p in (cur.title, cur.message) if p]
+                    text = "\n".join(parts) if parts else cur.source
+                    return (t.clip or idle), (text if bubbles else "")
+            elif ev == "track":
+                secs = float((t.params or {}).get("seconds", bub.get("track_seconds", 6.0)) or 6.0)
+                if playing and bub.get("track", True) and now - self._track_changed_at < secs:
+                    text = f"♪ {np.title or np.album or 'Now playing'}"
+                    if np.artist:
+                        text += f"\n{np.artist}"
+                    return (t.clip or music_clip or idle), (text if bubbles else "")
+            elif ev == "music":
+                if playing and t.clip:
+                    return t.clip, ""
+            elif ev == "value":
+                if t.clip and self._value_matches(t.params or {}, self._values):
+                    return t.clip, ""
+            elif ev == "time":
+                if t.clip and self._time_matches(t.params or {}):
+                    return t.clip, ""
+        if say_clip:  # no say trigger listed, but the API asked — still speak
+            return say_clip, (state.say_text if bubbles else "")
+        return idle, ""
+
+    def _draw_sprite(self, base: Image.Image, widget, at_ms=None) -> None:
+        """A sprite-sheet character: plays the clip its situation calls for,
+        integer-scaled and alpha-pasted, with an optional speech bubble."""
+        cfg = widget.config or {}
+        sp = self._sprites.get(cfg.get("sprite_id")) if self._sprites else None
+        x, y = int(widget.x), int(widget.y)
+        scale = max(1, min(16, int(cfg.get("scale", 1) or 1)))
+        if sp is None:
+            # Placeholder tile so an unassigned sprite widget is still visible.
+            w = int(cfg.get("w") or 16)
+            h = int(cfg.get("h") or 16)
+            base.paste(Image.new("RGB", (w, h), (24, 24, 30)), (x, y))
+            font = widget_font(widget)
+            draw_pixel_text(base, x + max(0, (w - 5) // 2), y + max(0, (h - font.height) // 2), "?", (96, 96, 120), 1, font)
+            return
+        frames = self._sprite_renderer.frames(sp, scale, bool(cfg.get("flip")))
+        if not frames:
+            return
+
+        preview = at_ms is not None
+        now = time.monotonic()
+        # Previews (editor / thumbnails) must not disturb the live clip timing.
+        state = _SpriteState() if preview else self._sprite_states.setdefault(widget.id, _SpriteState())
+        clip_name, bubble_text = self._sprite_intent(sp, cfg, state, now, preview)
+
+        # Typewriter: text reveals at `cps`; the talking animation plays only
+        # while characters are still arriving, then the sprite goes back to
+        # what it would otherwise be doing (music → dance, else idle) while the
+        # finished bubble lingers for `hold` seconds.
+        bub = self._bubble_cfg(cfg)
+        cps = max(2.0, float(bub.get("cps", 18) or 18))
+        hold = max(0.0, float(bub.get("hold", 1.5) or 0))
+        reveal = None
+        if not preview:
+            if bubble_text:
+                if bubble_text != state.bubble_text:
+                    state.bubble_text = bubble_text
+                    state.bubble_started = now
+            elif state.bubble_text:
+                done_at = state.bubble_started + visible_chars(state.bubble_text) / cps + hold
+                if now < done_at:
+                    bubble_text = state.bubble_text  # source gone; let it finish + linger
+                else:
+                    state.bubble_text = ""
+            if bubble_text:
+                reveal = int((now - state.bubble_started) * cps)
+                if reveal < visible_chars(bubble_text):
+                    self._note_anim(1000.0 / cps, 0)  # tick per character
+                else:
+                    np = self._music.now_playing() if self._music else None
+                    music_clip = next((t.clip for t in sp.triggers if t.event == "music" and t.clip), "")
+                    clip_name = music_clip if (np and np.playing and music_clip) else (sp.idle_clip or "idle")
+        clip_name, clip = sp.clip_or_fallback(clip_name)
+        if clip_name != state.clip:
+            state.clip = clip_name
+            state.clip_started = now  # a new clip starts from its first frame
+
+        n = len(clip.frames)
+        fps = max(0.5, float(clip.fps))
+        if n > 1:
+            t_ms = at_ms if preview else (now - state.clip_started) * 1000.0
+            step = int(t_ms / 1000.0 * fps)
+            i = step % n if clip.loop else min(n - 1, step)
+            self._note_anim(1000.0 / fps, clip.period_ms)
+        else:
+            i = 0
+        idx = clip.frames[i] if n else 0
+        im = frames[max(0, min(len(frames) - 1, idx))]
+        # Frames can differ in size (several regions); place this one inside the
+        # widget box (largest frame × scale) by the sprite's anchor.
+        bw, bh = sp.box
+        bw, bh = bw * scale, bh * scale
+        ox, oy = anchor_offset(sp.anchor, bw, bh, im.width, im.height)
+        base.paste(im, (x + ox, y + oy), im)
+
+        if bubble_text:
+            font = get_font(bub.get("font")) if bub.get("font") else widget_font(widget)
+            bscale = max(1, int(bub.get("scale", 1) or 1))
+            side = str(bub.get("side", "auto"))
+            box = None
+            b = bub.get("box")
+            if side == "custom" and isinstance(b, dict):
+                box = (x + int(b.get("dx", 0)), y + int(b.get("dy", 0)),
+                       max(4, int(b.get("w", 24))), max(4, int(b.get("h", 12))))
+            draw_bubble(
+                base, bubble_text, (x, y, bw, bh),
+                font=font, scale=bscale, side=side,
+                style=str(bub.get("style", "light")), box=box, reveal=reveal,
+                radius=int(bub.get("radius", 2) or 0),
+                tail=str(bub.get("tail", "auto") or "auto"),
+                tail_at=(None if bub.get("tail_at") is None else max(0.0, min(1.0, float(bub["tail_at"])))),
+            )
+            if not preview:
+                self._note_anim(250.0, 0)  # keep ticking so expiry stays responsive
 
     def _submit_music_render(self, key, fn) -> None:
         """Rasterise album art in the background so the composite loop never

@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import Icon from "./Icon.jsx";
 import Gallery from "./Gallery.jsx";
+import SpritesPanel from "./SpritesPanel.jsx";
+import SpriteStudio from "./studio/SpriteStudio.jsx";
 import SceneCanvas from "./SceneCanvas.jsx";
 import SceneControls from "./SceneControls.jsx";
 import SceneSidebar from "./SceneSidebar.jsx";
@@ -11,15 +13,21 @@ import MobileScenes from "./MobileScenes.jsx";
 const TABS = [
   { id: "home", label: "Home", icon: "home" },
   { id: "editor", label: "Editor", icon: "edit" },
+  { id: "sprites", label: "Sprites", icon: "sprite" },
   { id: "scenes", label: "Scenes", icon: "grid" },
   { id: "settings", label: "Settings", icon: "gear" },
 ];
 
 // The mobile app: a fixed bottom tab bar over one full-screen view at a time.
 export default function MobileShell({
-  sc, status, dims, items, music, fonts, showToast, refreshStatus, refreshMedia,
+  sc, status, dims, items, sprites, music, fonts, showToast, refreshStatus, refreshMedia, refreshSprites,
+  studioId, setStudioId,
 }) {
   const [tab, setTab] = useState("home");
+  const openStudio = (id) => {
+    setStudioId(id || null);
+    setTab("sprites");
+  };
 
   return (
     <div className="mshell">
@@ -38,9 +46,18 @@ export default function MobileShell({
 
         {tab === "editor" && (
           <div className="meditor">
-            <SceneCanvas sc={sc} cols={dims.cols} rows={dims.rows} music={music} media={items} />
-            <SceneControls sc={sc} cols={dims.cols} rows={dims.rows} media={items} music={music} fonts={fonts} />
-            <SceneSidebar sc={sc} cols={dims.cols} rows={dims.rows} media={items} />
+            <SceneCanvas sc={sc} cols={dims.cols} rows={dims.rows} music={music} media={items} sprites={sprites} />
+            <SceneControls
+              sc={sc}
+              cols={dims.cols}
+              rows={dims.rows}
+              media={items}
+              sprites={sprites}
+              music={music}
+              fonts={fonts}
+              onOpenStudio={openStudio}
+            />
+            <SceneSidebar sc={sc} cols={dims.cols} rows={dims.rows} media={items} sprites={sprites} />
             <Gallery
               items={items}
               onAddImage={(item) => {
@@ -50,7 +67,25 @@ export default function MobileShell({
               onChanged={refreshMedia}
               onToast={showToast}
             />
+            <SpritesPanel
+              sprites={sprites}
+              onAddSprite={(sp) => {
+                sc.addSprite(sp, dims.cols, dims.rows);
+                showToast(`Added "${sp.name}" to the scene`);
+              }}
+              onOpenStudio={openStudio}
+            />
           </div>
+        )}
+
+        {tab === "sprites" && (
+          <SpriteStudio
+            mobile
+            sprites={sprites}
+            onChanged={refreshSprites}
+            initialId={studioId}
+            onToast={showToast}
+          />
         )}
 
         {tab === "scenes" && (

@@ -7,7 +7,8 @@ const CORNERS = ["nw", "ne", "sw", "se"];
 const EDGES = ["n", "s", "w", "e"];
 // Tiles hold scaling art (aspect-lockable). Text widgets hold a text box that
 // the text wraps/clips within — resizing changes the box, never the font size.
-const isTile = (w) => w.type === "image" || w.type === "music";
+// Sprites are tiles too, but only ever at whole-number scales of their frame.
+const isTile = (w) => w.type === "image" || w.type === "music" || w.type === "sprite";
 // Viewport image: the box is a fixed window; the interior image pans, the box
 // crops. Only image widgets in the non-scaling fit modes.
 const isWindowed = (w) => w.type === "image" && (w.config?.fit === "center" || w.config?.fit === "integer");
@@ -23,7 +24,7 @@ function widgetBox(w, def) {
 // The center edit area: a live server-rendered preview of the scene with the
 // pixel grid, per-widget selection boxes, corner resize handles, and a
 // right-click context menu.
-export default function SceneCanvas({ sc, cols, rows, music, media }) {
+export default function SceneCanvas({ sc, cols, rows, music, media, sprites }) {
   const ref = useRef(null);
   const [uniform, setUniform] = useState(true);
   const [menu, setMenu] = useState(null); // { x, y, id }
@@ -100,7 +101,8 @@ export default function SceneCanvas({ sc, cols, rows, music, media }) {
     const rect = ref.current.getBoundingClientRect();
     const win = isWindowed(w);
     const tile = isTile(w);
-    const lockAspect = tile && !win ? uniform : false; // text + viewports resize freely
+    // text + viewports resize freely; sprites always keep their frame aspect
+    const lockAspect = tile && !win ? (w.type === "sprite" ? true : uniform) : false;
     const b0 = boxOf(w);
     const aspect = b0.w / b0.h;
     // For a viewport, keep the image pinned to the panel so resizing only crops:
@@ -135,7 +137,7 @@ export default function SceneCanvas({ sc, cols, rows, music, media }) {
           off_y: Math.round(anchorY - by),
         });
       } else {
-        applyBox(w, { x: bx, y: by, w: bw, h: bh });
+        applyBox(w, { x: bx, y: by, w: bw, h: bh }, fixed);
       }
     };
     const up = () => {
@@ -180,7 +182,97 @@ export default function SceneCanvas({ sc, cols, rows, music, media }) {
     else startMove(e, w);
   }
 
-  function applyBox(w, box) {
+  // --- a sprite's hand-placed speech bubble (config.bubble.box, relative to the sprite) ---
+  function bubbleBox(w) {
+    const b = w.config?.bubble?.box;
+    if (w.type !== "sprite" || !b || w.config?.bubble?.side !== "custom" || w.config?.bubble?.enabled === false) return null;
+    return { x: w.x + (b.dx | 0), y: w.y + (b.dy | 0), w: Math.max(4, b.w | 0), h: Math.max(4, b.h | 0) };
+  }
+  function setBubbleBox(w, box) {
+    sc.updateConfig(w.id, { bubble: { ...(w.config?.bubble || {}), box } });
+  }
+  function startBubbleMove(e, w) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setMenu(null);
+    sc.setSelId(w.id);
+    const rect = ref.current.getBoundingClientRect();
+    const kx = cols / rect.width;
+    const ky = rows / rect.height;
+    const ox = e.clientX;
+    const oy = e.clientY;
+    const b0 = { ...(w.config?.bubble?.box || {}) };
+    const move = (ev) => {
+      setBubbleBox(w, {
+        ...b0,
+        dx: Math.round((b0.dx | 0) + (ev.clientX - ox) * kx),
+        dy: Math.round((b0.dy | 0) + (ev.clientY - oy) * ky),
+      });
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  }
+  function startBubbleResize(e, w, corner) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setMenu(null);
+    sc.setSelId(w.id);
+    const rect = ref.current.getBoundingClientRect();
+    const b0 = bubbleBox(w);
+    const raw = { ...(w.config?.bubble?.box || {}) };
+    const fixed = {
+      nw: { x: b0.x + b0.w, y: b0.y + b0.h },
+      ne: { x: b0.x, y: b0.y + b0.h },
+      sw: { x: b0.x + b0.w, y: b0.y },
+      se: { x: b0.x, y: b0.y },
+    }[corner];
+    const move = (ev) => {
+      const [cx, cy] = grid(ev, rect);
+      const bw = Math.max(6, Math.abs(cx - fixed.x));
+      const bh = Math.max(6, Math.abs(cy - fixed.y));
+      const bx = cx < fixed.x ? fixed.x - bw : fixed.x;
+      const by = cy < fixed.y ? fixed.y - bh : fixed.y;
+      setBubbleBox(w, {
+        ...raw,
+        dx: Math.round(bx - w.x),
+        dy: Math.round(by - w.y),
+        w: Math.round(bw),
+        h: Math.round(bh),
+      });
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  }
+
+  function applyBox(w, box, fixed) {
+    if (w.type === "sprite") {
+      // Snap to a whole-number scale of the sheet's frame so pixels stay crisp,
+      // growing away from the fixed (opposite) corner.
+      const sp = (sprites || []).find((s) => s.id === w.config?.sprite_id);
+      const fw = sp?.box?.w || w.config?.w || 16;
+      const fh = sp?.box?.h || w.config?.h || 16;
+      const scale = Math.max(1, Math.min(16, Math.round(box.w / fw)));
+      const nw = fw * scale;
+      const nh = fh * scale;
+      const right = fixed && Math.round(fixed.x) === Math.round(box.x + box.w);
+      const bottom = fixed && Math.round(fixed.y) === Math.round(box.y + box.h);
+      sc.updateWidget(w.id, {
+        x: Math.round(right ? fixed.x - nw : box.x),
+        y: Math.round(bottom ? fixed.y - nh : box.y),
+      });
+      sc.updateConfig(w.id, { scale, w: nw, h: nh });
+      return;
+    }
     // Resizing only changes the box boundary — never the font size. For text
     // widgets the text re-wraps inside the new box (and clips) server-side.
     sc.updateWidget(w.id, { x: Math.round(box.x), y: Math.round(box.y) });
@@ -276,7 +368,23 @@ export default function SceneCanvas({ sc, cols, rows, music, media }) {
   // The actions available for a widget, as a data model (rendered as a menu).
   function menuItems(w) {
     const items = [];
-    if (isTile(w)) {
+    if (w.type === "sprite") {
+      items.push({ head: "Sprite" });
+      items.push({
+        label: "Flip horizontally",
+        on: Boolean(w.config?.flip),
+        run: () => sc.updateConfig(w.id, { flip: !w.config?.flip }),
+      });
+      items.push({
+        label: "Speech bubble",
+        on: (w.config?.bubble?.enabled ?? true) !== false,
+        run: () =>
+          sc.updateConfig(w.id, {
+            bubble: { ...(w.config?.bubble || {}), enabled: !((w.config?.bubble?.enabled ?? true) !== false) },
+          }),
+      });
+      items.push({ sep: true });
+    } else if (isTile(w)) {
       items.push({ head: "Scaling" });
       items.push({ label: "Fill", on: w.config?.fit === "cover", run: () => setFit(w, "cover") });
       items.push({ label: "Integer scale", on: w.config?.fit === "integer", run: () => setFit(w, "integer") });
@@ -356,9 +464,31 @@ export default function SceneCanvas({ sc, cols, rows, music, media }) {
         {sc.scene.widgets.map((w) => {
           const box = boxOf(w);
           const isSel = w.id === sc.selId;
+          const bb = isSel ? bubbleBox(w) : null;
           return (
+            <React.Fragment key={w.id}>
+            {bb && (
+              <div
+                className="scene-box bubble-box"
+                role="button"
+                tabIndex={0}
+                aria-label={`speech bubble box for ${w.type} at ${bb.x}, ${bb.y}. Drag to move, corners resize.`}
+                title="speech bubble · drag to move · corners resize"
+                style={{
+                  left: `${(bb.x / cols) * 100}%`,
+                  top: `${(bb.y / rows) * 100}%`,
+                  width: `${(bb.w / cols) * 100}%`,
+                  height: `${(bb.h / rows) * 100}%`,
+                }}
+                onPointerDown={(e) => startBubbleMove(e, w)}
+              >
+                <span className="box-badge" aria-hidden="true"><Icon name="bubble" size={11} /></span>
+                {CORNERS.map((c) => (
+                  <span key={c} className={`handle ${c}`} onPointerDown={(e) => startBubbleResize(e, w, c)} />
+                ))}
+              </div>
+            )}
             <div
-              key={w.id}
               data-wid={w.id}
               tabIndex={0}
               role="button"
@@ -378,7 +508,13 @@ export default function SceneCanvas({ sc, cols, rows, music, media }) {
               onKeyDown={(e) => onBoxKey(e, w)}
               onPointerDown={(e) => startBody(e, w)}
               onContextMenu={(e) => openMenu(e, w)}
-              title={isWindowed(w) ? "drag to pan · edges move · corners crop" : `${w.type} (${w.x},${w.y})`}
+              title={
+                isWindowed(w)
+                  ? "drag to pan · edges move · corners crop"
+                  : w.type === "sprite"
+                  ? `sprite ×${w.config?.scale || 1} (${w.x},${w.y}) · corners snap to whole scales`
+                  : `${w.type} (${w.x},${w.y})`
+              }
             >
               <span className="box-badge" aria-hidden="true"><Icon name={w.type} size={11} /></span>
               {isSel && (
@@ -417,6 +553,7 @@ export default function SceneCanvas({ sc, cols, rows, music, media }) {
                   />
                 ))}
             </div>
+            </React.Fragment>
           );
         })}
 

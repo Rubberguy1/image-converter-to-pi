@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./api.js";
 import Gallery from "./components/Gallery.jsx";
+import SpritesPanel from "./components/SpritesPanel.jsx";
+import SpriteStudio from "./components/studio/SpriteStudio.jsx";
 import MusicPanel from "./components/MusicPanel.jsx";
 import WledPanel from "./components/WledPanel.jsx";
 import ScreenMirror from "./components/ScreenMirror.jsx";
@@ -30,6 +32,15 @@ function contentDims(m) {
 export default function App() {
   const [status, setStatus] = useState(null);
   const [items, setItems] = useState([]);
+  const [sprites, setSprites] = useState([]);
+  const [libTab, setLibTab] = useState(() => localStorage.getItem("pp.libTab") || "media");
+  // Top-level section: the scene editor or the Sprite Studio.
+  const [view, setView] = useState(() => localStorage.getItem("pp.view") || "scenes");
+  const [studioId, setStudioId] = useState(null);
+  const openStudio = useCallback((spriteId) => {
+    setStudioId(spriteId || null);
+    setView("sprites");
+  }, []);
   const [toast, setToast] = useState(null);
   const [error, setError] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
@@ -65,6 +76,21 @@ export default function App() {
       showToast(`Could not load library: ${e.message}`, true);
     }
   }, [showToast]);
+
+  const refreshSprites = useCallback(async () => {
+    try {
+      setSprites((await api.listSprites()).sprites || []);
+    } catch (e) {
+      showToast(`Could not load sprites: ${e.message}`, true);
+    }
+  }, [showToast]);
+
+  useEffect(() => {
+    localStorage.setItem("pp.libTab", libTab);
+  }, [libTab]);
+  useEffect(() => {
+    localStorage.setItem("pp.view", view);
+  }, [view]);
 
   const sc = useScene(showToast, refreshStatus, items);
   const isMobile = useIsMobile();
@@ -116,10 +142,11 @@ export default function App() {
   useEffect(() => {
     refreshStatus();
     refreshMedia();
+    refreshSprites();
     api.listFonts().then((r) => r.fonts?.length && setFonts(r.fonts)).catch(() => {});
     const t = setInterval(refreshStatus, 4000);
     return () => clearInterval(t);
-  }, [refreshStatus, refreshMedia]);
+  }, [refreshStatus, refreshMedia, refreshSprites]);
 
   // Push this device's battery % so a scene "value" widget named "battery" works.
   useEffect(() => {
@@ -190,11 +217,15 @@ export default function App() {
           status={status}
           dims={dims}
           items={items}
+          sprites={sprites}
           music={music}
           fonts={fonts}
           showToast={showToast}
           refreshStatus={refreshStatus}
           refreshMedia={refreshMedia}
+          refreshSprites={refreshSprites}
+          studioId={studioId}
+          setStudioId={setStudioId}
         />
         {toastEl}
       </div>
@@ -207,6 +238,14 @@ export default function App() {
         <h1>
           Pixel<span>Pusher</span>
         </h1>
+        <nav className="view-nav" aria-label="Sections">
+          <button className={`tab ${view === "scenes" ? "active" : ""}`} aria-current={view === "scenes" ? "page" : undefined} onClick={() => setView("scenes")}>
+            Scenes
+          </button>
+          <button className={`tab ${view === "sprites" ? "active" : ""}`} aria-current={view === "sprites" ? "page" : undefined} onClick={() => setView("sprites")}>
+            Sprite Studio
+          </button>
+        </nav>
         <StatusBar status={status} onChanged={refreshStatus} onToast={showToast} />
         <PowerWidget power={status.power} />
         <PerfBadge />
@@ -243,33 +282,93 @@ export default function App() {
           <ScreenMirror cols={dims.cols} rows={dims.rows} onChanged={refreshStatus} onToast={showToast} />
         </HeaderDropdown>
 
+        <button
+          className={`hbtn ${sc.musicMode ? "active" : ""}`}
+          title="Music mode — fill the panel with now-playing art (clock when idle)"
+          onClick={() => sc.setMusicMode(!sc.musicMode)}
+        >
+          🎵 Music mode
+          {sc.musicMode && <span className="hdot" />}
+        </button>
+
         <button className="gear" title="Settings" onClick={() => setShowSettings(true)}>
           ⚙
         </button>
       </header>
 
-      <main>
-        <aside className="sidebar" style={{ width: leftWidth }}>
-          <Gallery
-            items={items}
-            onAddImage={(item) => {
-              sc.addImage(item, dims.cols, dims.rows);
-              showToast(`Added "${item.name}" to the scene`);
-            }}
-            onChanged={refreshMedia}
+      {view === "sprites" ? (
+        <main className="studio-main">
+          <SpriteStudio
+            sprites={sprites}
+            onChanged={refreshSprites}
+            initialId={studioId}
             onToast={showToast}
           />
-          <SceneControls sc={sc} cols={dims.cols} rows={dims.rows} media={items} music={music} fonts={fonts} />
+        </main>
+      ) : (
+      <main>
+        <aside className="sidebar" style={{ width: leftWidth }}>
+          <div className="library">
+            <div className="tabs lib-tabs" role="tablist" aria-label="Library">
+              <button
+                role="tab"
+                className={`tab ${libTab === "media" ? "active" : ""}`}
+                aria-selected={libTab === "media"}
+                onClick={() => setLibTab("media")}
+              >
+                Media
+              </button>
+              <button
+                role="tab"
+                className={`tab ${libTab === "sprites" ? "active" : ""}`}
+                aria-selected={libTab === "sprites"}
+                onClick={() => setLibTab("sprites")}
+              >
+                Sprites{sprites.length ? ` (${sprites.length})` : ""}
+              </button>
+            </div>
+            {libTab === "media" ? (
+              <Gallery
+                items={items}
+                onAddImage={(item) => {
+                  sc.addImage(item, dims.cols, dims.rows);
+                  showToast(`Added "${item.name}" to the scene`);
+                }}
+                onChanged={refreshMedia}
+                onToast={showToast}
+              />
+            ) : (
+              <SpritesPanel
+                sprites={sprites}
+                onAddSprite={(sp) => {
+                  sc.addSprite(sp, dims.cols, dims.rows);
+                  showToast(`Added "${sp.name}" to the scene`);
+                }}
+                onOpenStudio={openStudio}
+              />
+            )}
+          </div>
+          <SceneControls
+            sc={sc}
+            cols={dims.cols}
+            rows={dims.rows}
+            media={items}
+            sprites={sprites}
+            music={music}
+            fonts={fonts}
+            onOpenStudio={openStudio}
+          />
         </aside>
 
         <Resizer onDrag={(x) => setLeftWidth(clamp(x, 240, 560))} />
 
         <section className="workspace">
-          <SceneCanvas sc={sc} cols={dims.cols} rows={dims.rows} music={music} media={items} />
+          <SceneCanvas sc={sc} cols={dims.cols} rows={dims.rows} music={music} media={items} sprites={sprites} />
         </section>
 
-        <SceneSidebar sc={sc} cols={dims.cols} rows={dims.rows} media={items} />
+        <SceneSidebar sc={sc} cols={dims.cols} rows={dims.rows} media={items} sprites={sprites} />
       </main>
+      )}
 
       {showSettings && (
         <SettingsModal

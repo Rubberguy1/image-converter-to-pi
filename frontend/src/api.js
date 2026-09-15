@@ -74,6 +74,8 @@ export const api = {
 
   enableScene: (enabled) => send("/api/scene/enable", "POST", { enabled }),
 
+  setMusicMode: (enabled) => send("/api/music-mode", "POST", { enabled }),
+
   pushSceneValue: (name, value) => send("/api/scene/value", "POST", { name, value }),
 
   scenePreviewUrl: (scene) => blobUrl("/api/scene/preview", "POST", scene),
@@ -113,4 +115,29 @@ export const api = {
 
   originalUrl: (id) => apiUrl(`/api/media/${id}/original`),
   thumbUrl: (id) => apiUrl(`/api/media/${id}/thumb`),
+
+  // Sprite sheets (the assistant's body) + the "say" hook.
+  listSprites: () => get("/api/sprites"),
+  uploadSprite: (file, name) => {
+    const form = new FormData();
+    form.append("file", file);
+    if (name) form.append("name", name);
+    return fetch(apiUrl("/api/sprites"), { method: "POST", body: form }).then(jsonOrThrow);
+  },
+  getSprite: (id) => get(`/api/sprites/${id}`),
+  updateSprite: (id, patch) => send(`/api/sprites/${id}`, "PUT", patch),
+  deleteSprite: (id) => send(`/api/sprites/${id}`, "DELETE"),
+  spriteSheetUrl: (id, v = 0) => apiUrl(`/api/sprites/${id}/sheet?v=${v}`),
+  spriteSheetImageUrl: (id, sheetId, v = 0) => apiUrl(`/api/sprites/${id}/sheets/${sheetId}?v=${v}`),
+  addSpriteSheet: (id, file, name) => {
+    const form = new FormData();
+    form.append("file", file);
+    if (name) form.append("name", name);
+    return fetch(apiUrl(`/api/sprites/${id}/sheets`), { method: "POST", body: form }).then(jsonOrThrow);
+  },
+  deleteSpriteSheet: (id, sheetId) => send(`/api/sprites/${id}/sheets/${sheetId}`, "DELETE"),
+  spriteThumbUrl: (id, v = 0) => apiUrl(`/api/sprites/${id}/thumb?v=${v}`),
+  spriteClipPreviewUrl: (id, clip, scale = 2, v = 0) =>
+    apiUrl(`/api/sprites/${id}/preview?clip=${encodeURIComponent(clip)}&scale=${scale}&v=${v}`),
+  spriteSay: (payload) => send("/api/sprite/say", "POST", payload),
 };

@@ -3,7 +3,25 @@ import { api } from "../api.js";
 
 // Widgets whose content changes over time (independently of edits), so the
 // preview must re-render on a timer, not just when the scene object changes.
-const LIVE_TYPES = new Set(["music", "nowplaying", "clock", "weather", "value"]);
+const LIVE_TYPES = new Set(["music", "nowplaying", "clock", "weather", "value", "sprite"]);
+
+// Defaults for a sprite widget's speech bubble (mirrors the backend). Which
+// animation plays for which event lives on the sprite itself (Sprite Studio).
+export const SPRITE_BUBBLE_DEFAULTS = {
+  enabled: true,
+  notifications: true,
+  track: true,
+  track_seconds: 6,
+  side: "auto", // auto | left | right | above | below | custom (drag the box on the canvas)
+  box: null, // custom placement: { dx, dy, w, h } relative to the sprite's top-left
+  style: "light",
+  cps: 18, // typewriter speed, characters per second
+  hold: 1.5, // seconds the finished bubble lingers
+  radius: 2, // corner rounding in px (0 = square)
+  tail: "auto", // auto (faces the sprite) | left | right | top | bottom | none
+  tail_at: null, // 0..1 along that edge; null = aim at the sprite
+  sample: "Hi!",
+};
 // Text widgets that carry an explicit text box (w×h) the text wraps/clips within.
 const TEXT_TYPES = new Set(["clock", "text", "weather", "value", "nowplaying"]);
 
@@ -49,6 +67,16 @@ export function newWidget(type, cols, rows) {
     base.config = { w: s, h: s, fit: "cover", disc: false };
   }
   if (type === "nowplaying") base.config = { show_artist: true };
+  if (type === "sprite") {
+    base.config = {
+      sprite_id: null,
+      scale: 1,
+      w: 16,
+      h: 16,
+      flip: false,
+      bubble: { ...SPRITE_BUBBLE_DEFAULTS },
+    };
+  }
   if (TEXT_TYPES.has(type)) {
     const bw = Math.max(24, Math.round((cols || 64) * 0.5));
     const bh = type === "nowplaying" ? base.size * 2 + 6 : base.size + 4;
@@ -63,6 +91,7 @@ export function useScene(onToast, onChanged, media = []) {
   const [selId, setSelId] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [saved, setSaved] = useState([]);
+  const [musicMode, setMusicModeState] = useState(false);
   const [dirty, setDirty] = useState(false); // edits not yet saved to the Pi
   const savedRef = useRef(scene);             // the scene as last saved/loaded
   const timer = useRef(null);
@@ -151,6 +180,7 @@ export function useScene(onToast, onChanged, media = []) {
           savedRef.current = s;
           setDirty(false);
         }
+        if (r.status) setMusicModeState(!!r.status.music_mode);
       })
       .catch(() => {});
     refreshSaved();
@@ -201,7 +231,8 @@ export function useScene(onToast, onChanged, media = []) {
   const usesAnimated =
     (scene.background?.type === "media" && animatedIds.has(scene.background.media_id)) ||
     scene.widgets.some((w) => w.type === "image" && animatedIds.has(w.config?.media_id)) ||
-    scene.widgets.some((w) => w.type === "music" && w.config?.disc);
+    scene.widgets.some((w) => w.type === "music" && w.config?.disc) ||
+    scene.widgets.some((w) => w.type === "sprite" && w.config?.sprite_id);
   const hasLive = scene.widgets.some((w) => LIVE_TYPES.has(w.type));
   useEffect(() => {
     if (!hasLive || usesAnimated) return undefined;
@@ -273,6 +304,25 @@ export function useScene(onToast, onChanged, media = []) {
       setScene((s) => ({ ...s, widgets: [...s.widgets, w] }));
       setSelId(w.id);
     },
+    // Place a sprite sheet character in the scene: the largest integer scale
+    // that keeps it within a third of the panel, parked bottom-left.
+    addSprite: (sprite, cols, rows) => {
+      const fw = sprite.box?.w || 16;
+      const fh = sprite.box?.h || 16;
+      const scale = Math.max(1, Math.floor(Math.min(cols / 3 / fw, rows / 2 / fh)));
+      const w = newWidget("sprite", cols, rows);
+      w.config = {
+        ...w.config,
+        sprite_id: sprite.id,
+        scale,
+        w: fw * scale,
+        h: fh * scale,
+      };
+      w.x = 2;
+      w.y = Math.max(0, rows - fh * scale - 2);
+      setScene((s) => ({ ...s, widgets: [...s.widgets, w] }));
+      setSelId(w.id);
+    },
     updateWidget: (id, patch) =>
       setScene((s) => ({
         ...s,
@@ -322,6 +372,20 @@ export function useScene(onToast, onChanged, media = []) {
     canUndo,
     canRedo,
     dirty,
+    toast: onToast,
+    musicMode,
+    setMusicMode: async (on) => {
+      setMusicModeState(on); // optimistic
+      try {
+        const st = await api.setMusicMode(on);
+        setMusicModeState(!!st.music_mode);
+        onToast(on ? "Music mode on" : "Music mode off");
+        onChanged && onChanged();
+      } catch (e) {
+        setMusicModeState(!on); // revert
+        onToast(`Error: ${e.message}`, true);
+      }
+    },
     save: async (weather) => {
       try {
         await api.saveScene(scene);

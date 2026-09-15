@@ -79,6 +79,10 @@ class NotificationManager:
         self._font = get_font(DEFAULT_FONT)
         self._task: asyncio.Task | None = None
         self._sources_seen: set[str] = set()
+        # When a scene sprite is presenting notifications (speech bubble), the
+        # banner overlay stays off — the queue/timing still runs here, the
+        # sprite just reads `current()` and does the drawing.
+        self._banner_suppressed = False
 
     # --- lifecycle ---
     async def start(self) -> None:
@@ -140,6 +144,15 @@ class NotificationManager:
                 if self._current and self._current.id == nid:
                     self._current = None
                 self._queue = [n for n in self._queue if n.id != nid]
+
+    def current(self) -> Notification | None:
+        """The notification being shown right now (if any) — for presenters
+        other than the banner, e.g. a scene sprite's speech bubble."""
+        with self._lock:
+            return self._current
+
+    def set_banner_suppressed(self, on: bool) -> None:
+        self._banner_suppressed = bool(on)
 
     def update_settings(self, patch: dict) -> dict:
         with self._lock:
@@ -210,6 +223,13 @@ class NotificationManager:
                 if self._current is cur:
                     self._current = None
             return  # next tick promotes the next one (or clears the overlay)
+
+        if self._banner_suppressed:
+            # A sprite is presenting it; keep timing, skip the banner.
+            if self._overlay_on:
+                self._player.clear_overlay()
+                self._overlay_on = False
+            return
 
         self._player.set_overlay(self._render(cur, elapsed, total))
         self._overlay_on = True

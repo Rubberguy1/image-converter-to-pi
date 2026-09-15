@@ -3,6 +3,12 @@ import Icon from "./Icon.jsx";
 import RangeInput from "./RangeInput.jsx";
 import { api } from "../api.js";
 import CropModal from "./CropModal.jsx";
+import { SPRITE_BUBBLE_DEFAULTS } from "../hooks/useScene.js";
+import NumInput from "./studio/NumInput.jsx";
+
+const EVENT_SHORT = {
+  say: "say", notification: "notification", track: "new track", music: "music", value: "value", time: "time",
+};
 
 export const MUSIC_PROVIDERS = [
   { v: "browser", l: "Browser" },
@@ -14,10 +20,11 @@ export const MUSIC_PROVIDERS = [
 
 // Left-pane controls for the scene: background, add widgets, per-widget config,
 // weather location, and save/enable. Shares state via the `sc` scene hook object.
-export default function SceneControls({ sc, cols, rows, media, music, fonts }) {
+export default function SceneControls({ sc, cols, rows, media, music, fonts, sprites, onOpenStudio }) {
   const [weather, setWeather] = useState({ lat: 0, lon: 0, unit: "fahrenheit" });
   const [cropWidget, setCropWidget] = useState(null);
   const [sceneName, setSceneName] = useState("");
+  const [sayText, setSayText] = useState("Hello!");
 
   useEffect(() => {
     api
@@ -113,8 +120,9 @@ export default function SceneControls({ sc, cols, rows, media, music, fonts }) {
           <button onClick={() => sc.addWidget("value", cols, rows)}><Icon name="value" /> Value</button>
           <button onClick={() => sc.addWidget("music", cols, rows)}><Icon name="music" /> Album art</button>
           <button onClick={() => sc.addWidget("nowplaying", cols, rows)}><Icon name="nowplaying" /> Now playing</button>
+          <button onClick={() => sc.addWidget("sprite", cols, rows)}><Icon name="sprite" /> Sprite</button>
         </div>
-        <p className="field-hint">Or click a library image below to drop it in.</p>
+        <p className="field-hint">Or click a library image / saved sprite above to drop it in.</p>
       </div>
 
       {sel && (
@@ -322,6 +330,211 @@ export default function SceneControls({ sc, cols, rows, media, music, fonts }) {
             </label>
           )}
 
+          {sel.type === "sprite" && (() => {
+            const sp = (sprites || []).find((s) => s.id === sel.config.sprite_id) || null;
+            const bubble = { ...SPRITE_BUBBLE_DEFAULTS, ...(sel.config.bubble || {}) };
+            const scale = Math.max(1, sel.config.scale || 1);
+            const setBubble = (p) => sc.updateConfig(sel.id, { bubble: { ...bubble, ...p } });
+            const sizeFor = (s, spr) => ({ w: (spr?.box?.w || 16) * s, h: (spr?.box?.h || 16) * s });
+            const setScale = (v) => {
+              const s = Math.max(1, Math.min(16, Math.round(Number(v) || 1)));
+              sc.updateConfig(sel.id, { scale: s, ...sizeFor(s, sp) });
+            };
+            const pickSprite = (id) => {
+              const next = (sprites || []).find((s) => s.id === id) || null;
+              sc.updateConfig(sel.id, { sprite_id: id || null, ...sizeFor(scale, next) });
+            };
+            const say = async () => {
+              try {
+                const r = await api.spriteSay({ text: sayText, widget_id: sel.id, duration: 5 });
+                if (!r.sprites) throw new Error("save the scene first so the panel has this sprite");
+                sc.toast("Sent to the panel");
+              } catch (e) {
+                sc.toast(`Couldn't send: ${e.message}`, true);
+              }
+            };
+            return (
+              <>
+                <div className="control">
+                  <label>Sprite sheet</label>
+                  <select value={sel.config.sprite_id || ""} onChange={(e) => pickSprite(e.target.value)}>
+                    <option value="">— pick —</option>
+                    {(sprites || []).map((s) => (
+                      <option key={s.id} value={s.id}>{s.name} ({s.box?.w}×{s.box?.h})</option>
+                    ))}
+                  </select>
+                  {!sprites?.length && (
+                    <p className="field-hint">
+                      No sprites yet — make one in the{" "}
+                      <button className="linklike" onClick={() => onOpenStudio && onOpenStudio(null)}>Sprite Studio</button>.
+                    </p>
+                  )}
+                </div>
+                <div className="control">
+                  <label>
+                    Scale <span className="val">×{scale} · {sizeFor(scale, sp).w}×{sizeFor(scale, sp).h}px</span>
+                  </label>
+                  <div className="row2">
+                    <input type="number" min="1" max="16" value={scale} onChange={(e) => setScale(e.target.value)} />
+                    <label className="checkbox inline">
+                      <input type="checkbox" checked={Boolean(sel.config.flip)}
+                        onChange={(e) => sc.updateConfig(sel.id, { flip: e.target.checked })} />
+                      Flip
+                    </label>
+                  </div>
+                </div>
+                {sp && (
+                  <div className="control">
+                    <label>Animations &amp; triggers</label>
+                    <ul className="trigger-summary">
+                      <li><span className="muted">idle</span> → {sp.idle_clip || "idle"}</li>
+                      {(sp.triggers || []).map((t) => (
+                        <li key={t.id}>
+                          <span className="muted">{EVENT_SHORT[t.event] || t.event}</span> → {t.clip || <em className="muted">fallback</em>}
+                        </li>
+                      ))}
+                    </ul>
+                    <button onClick={() => onOpenStudio && onOpenStudio(sp.id)}>
+                      <Icon name="edit" size={14} /> Edit in Sprite Studio
+                    </button>
+                  </div>
+                )}
+
+                <h4 className="sub">Speech bubble</h4>
+                <label className="checkbox">
+                  <input type="checkbox" checked={bubble.enabled !== false}
+                    onChange={(e) => setBubble({ enabled: e.target.checked })} />
+                  Show a speech bubble
+                </label>
+                {bubble.enabled !== false && (
+                  <>
+                    <label className="checkbox">
+                      <input type="checkbox" checked={bubble.notifications !== false}
+                        onChange={(e) => setBubble({ notifications: e.target.checked })} />
+                      Present notifications (replaces the banner)
+                    </label>
+                    <label className="checkbox">
+                      <input type="checkbox" checked={bubble.track !== false}
+                        onChange={(e) => setBubble({ track: e.target.checked })} />
+                      Announce new tracks
+                    </label>
+                    <div className="control">
+                      <label>Placement / style / announce secs</label>
+                      <div className="row3">
+                        <select
+                          value={bubble.side || "auto"}
+                          onChange={(e) => {
+                            const side = e.target.value;
+                            if (side === "custom" && !bubble.box) {
+                              const sw = sel.config.w || 16;
+                              const room = cols - (sel.x + sw + 3);
+                              const box = room >= 20
+                                ? { dx: sw + 3, dy: -6, w: Math.min(44, room), h: 20 }
+                                : { dx: 0, dy: -24, w: Math.min(48, cols - sel.x), h: 20 };
+                              setBubble({ side, box });
+                            } else {
+                              setBubble({ side });
+                            }
+                          }}
+                        >
+                          <option value="auto">Auto</option>
+                          <option value="right">Right</option>
+                          <option value="left">Left</option>
+                          <option value="above">Above</option>
+                          <option value="below">Below</option>
+                          <option value="custom">Custom box (drag on canvas)</option>
+                        </select>
+                        <select value={bubble.style || "light"} onChange={(e) => setBubble({ style: e.target.value })}>
+                          <option value="light">Light</option>
+                          <option value="dark">Dark</option>
+                        </select>
+                        <input type="number" min="1" max="60" value={bubble.track_seconds ?? 6}
+                          onChange={(e) => setBubble({ track_seconds: Number(e.target.value) || 6 })} />
+                      </div>
+                    </div>
+                    {bubble.side === "custom" && (
+                      <div className="control">
+                        <label>Bubble box · offset (dx, dy) · size (w, h)</label>
+                        <div className="row4">
+                          <NumInput min={-256} max={256} value={bubble.box?.dx ?? 0} onChange={(n) => setBubble({ box: { ...(bubble.box || {}), dx: n } })} aria-label="bubble dx" />
+                          <NumInput min={-256} max={256} value={bubble.box?.dy ?? 0} onChange={(n) => setBubble({ box: { ...(bubble.box || {}), dy: n } })} aria-label="bubble dy" />
+                          <NumInput min={6} max={512} value={bubble.box?.w ?? 24} onChange={(n) => setBubble({ box: { ...(bubble.box || {}), w: n } })} aria-label="bubble width" />
+                          <NumInput min={6} max={512} value={bubble.box?.h ?? 12} onChange={(n) => setBubble({ box: { ...(bubble.box || {}), h: n } })} aria-label="bubble height" />
+                        </div>
+                        <p className="field-hint">Relative to the sprite, so it follows when you move the sprite. Drag the dashed box on the canvas, corners resize.</p>
+                      </div>
+                    )}
+                    <div className="control">
+                      <label>Corner radius · tail edge</label>
+                      <div className="row2">
+                        <NumInput min={0} max={12} value={bubble.radius ?? 2} onChange={(n) => setBubble({ radius: n })} aria-label="corner radius" />
+                        <select value={bubble.tail || "auto"} onChange={(e) => setBubble({ tail: e.target.value })} aria-label="tail edge">
+                          <option value="auto">Auto (faces the sprite)</option>
+                          <option value="left">Left edge</option>
+                          <option value="right">Right edge</option>
+                          <option value="top">Top edge</option>
+                          <option value="bottom">Bottom edge</option>
+                          <option value="none">No tail</option>
+                        </select>
+                      </div>
+                    </div>
+                    {bubble.tail !== "none" && (
+                      <div className="control">
+                        <label className="checkbox">
+                          <input
+                            type="checkbox"
+                            checked={bubble.tail_at === null || bubble.tail_at === undefined}
+                            onChange={(e) => setBubble({ tail_at: e.target.checked ? null : 0.5 })}
+                          />
+                          Aim the tail at the sprite
+                        </label>
+                        {bubble.tail_at !== null && bubble.tail_at !== undefined && (
+                          <>
+                            <label>
+                              Tail position along the edge <span className="val">{Math.round(bubble.tail_at * 100)}%</span>
+                            </label>
+                            <RangeInput
+                              min={0}
+                              max={100}
+                              step="1"
+                              value={Math.round(bubble.tail_at * 100)}
+                              onChange={(e) => setBubble({ tail_at: Number(e.target.value) / 100 })}
+                            />
+                          </>
+                        )}
+                      </div>
+                    )}
+                    <div className="control">
+                      <label>Typing speed (chars/s) · hold after (s)</label>
+                      <div className="row2">
+                        <NumInput min={2} max={120} value={bubble.cps ?? 18} onChange={(n) => setBubble({ cps: n })} aria-label="typing speed" />
+                        <NumInput min={0} max={30} step="0.5" value={bubble.hold ?? 1.5} onChange={(n) => setBubble({ hold: n })} aria-label="hold seconds" />
+                      </div>
+                      <p className="field-hint">Text types out like a dialog box; the talking animation plays only while typing. When the box fills, lines crawl up.</p>
+                    </div>
+                    <div className="control">
+                      <label>Preview text (editor only)</label>
+                      <input type="text" value={bubble.sample ?? ""} onChange={(e) => setBubble({ sample: e.target.value })} />
+                    </div>
+                  </>
+                )}
+
+                <h4 className="sub">Try it on the panel</h4>
+                <div className="control">
+                  <div className="row2">
+                    <input type="text" value={sayText} onChange={(e) => setSayText(e.target.value)}
+                      placeholder="Say something…" />
+                    <button onClick={say} disabled={!sp || !sayText.trim()}>Say it</button>
+                  </div>
+                  <p className="field-hint">
+                    Plays the talking clip with this text for 5 s on the live panel (scene must be showing).
+                    Any service can do the same: <code>POST /api/sprite/say</code>.
+                  </p>
+                </div>
+              </>
+            );
+          })()}
+
           <div className="control">
             <label>Position (x, y)</label>
             <div className="row2">
@@ -341,7 +554,7 @@ export default function SceneControls({ sc, cols, rows, media, music, fonts }) {
               />
             </div>
           </div>
-          {sel.type !== "image" && sel.type !== "music" && (
+          {sel.type !== "image" && sel.type !== "music" && sel.type !== "sprite" && (
             <>
               <div className="control">
                 <label>Text box (w × h)</label>

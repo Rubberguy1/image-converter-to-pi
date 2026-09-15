@@ -80,6 +80,21 @@ export default function MobileHome({ sc, status, dims, onToast, onChanged, goEdi
         </div>
       </div>
 
+      <button
+        className={`card mhome-mm ${sc.musicMode ? "on" : ""}`}
+        onClick={() => sc.setMusicMode(!sc.musicMode)}
+        aria-pressed={sc.musicMode}
+      >
+        <span className="mhome-mm-l">
+          <Icon name="music" size={18} />
+          <span>
+            Music mode
+            <small>Fills the panel with what's playing · clock when idle</small>
+          </span>
+        </span>
+        <span className="mhome-mm-state">{sc.musicMode ? "On" : "Off"}</span>
+      </button>
+
       <div className="card mhome-bright">
         <label>Brightness</label>
         <RangeInput

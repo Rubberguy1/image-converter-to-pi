@@ -1,10 +1,14 @@
 import React from "react";
 import Icon from "./Icon.jsx";
 
-function layerLabel(w, media) {
+function layerLabel(w, media, sprites) {
   if (w.type === "image") {
     const m = (media || []).find((x) => x.id === w.config?.media_id);
     return m ? m.name : "image";
+  }
+  if (w.type === "sprite") {
+    const s = (sprites || []).find((x) => x.id === w.config?.sprite_id);
+    return s ? s.name : "sprite";
   }
   if (w.type === "text") return w.config?.text || "text";
   if (w.type === "value") return w.config?.name || "value";
@@ -16,7 +20,7 @@ function layerLabel(w, media) {
 // Right pane: a clean scene preview plus a layer list. Layers are shown
 // top-to-bottom in draw order (topmost first) and can be reordered, hidden,
 // selected, or deleted.
-export default function SceneSidebar({ sc, cols, rows, media }) {
+export default function SceneSidebar({ sc, cols, rows, media, sprites }) {
   const layers = [...sc.scene.widgets].reverse(); // topmost first
   const bg = sc.scene.background;
   const bgLabel =
@@ -37,7 +41,7 @@ export default function SceneSidebar({ sc, cols, rows, media }) {
             role="button"
             tabIndex={0}
             aria-current={w.id === sc.selId ? "true" : undefined}
-            aria-label={`${layerLabel(w, media)} layer${w.hidden ? ", hidden" : ""}${
+            aria-label={`${layerLabel(w, media, sprites)} layer${w.hidden ? ", hidden" : ""}${
               w.id === sc.selId ? ", selected" : ""
             }`}
             className={`layer-row ${w.id === sc.selId ? "sel" : ""} ${w.hidden ? "hidden" : ""}`}
@@ -51,13 +55,13 @@ export default function SceneSidebar({ sc, cols, rows, media }) {
             }}
           >
             <span className="layer-icon" aria-hidden="true"><Icon name={w.type} size={14} /></span>
-            <span className="layer-name" title={layerLabel(w, media)}>
-              {layerLabel(w, media)}
+            <span className="layer-name" title={layerLabel(w, media, sprites)}>
+              {layerLabel(w, media, sprites)}
             </span>
             <button
               className="layer-btn"
               title="Bring forward"
-              aria-label={`Bring ${layerLabel(w, media)} forward`}
+              aria-label={`Bring ${layerLabel(w, media, sprites)} forward`}
               onClick={(e) => {
                 e.stopPropagation();
                 sc.moveWidget(w.id, "forward");
@@ -68,7 +72,7 @@ export default function SceneSidebar({ sc, cols, rows, media }) {
             <button
               className="layer-btn"
               title="Send backward"
-              aria-label={`Send ${layerLabel(w, media)} backward`}
+              aria-label={`Send ${layerLabel(w, media, sprites)} backward`}
               onClick={(e) => {
                 e.stopPropagation();
                 sc.moveWidget(w.id, "backward");
@@ -79,7 +83,7 @@ export default function SceneSidebar({ sc, cols, rows, media }) {
             <button
               className="layer-btn"
               title={w.hidden ? "Show" : "Hide"}
-              aria-label={`${w.hidden ? "Show" : "Hide"} ${layerLabel(w, media)}`}
+              aria-label={`${w.hidden ? "Show" : "Hide"} ${layerLabel(w, media, sprites)}`}
               aria-pressed={Boolean(w.hidden)}
               onClick={(e) => {
                 e.stopPropagation();
@@ -91,7 +95,7 @@ export default function SceneSidebar({ sc, cols, rows, media }) {
             <button
               className="layer-btn danger"
               title="Delete"
-              aria-label={`Delete ${layerLabel(w, media)}`}
+              aria-label={`Delete ${layerLabel(w, media, sprites)}`}
               onClick={(e) => {
                 e.stopPropagation();
                 sc.removeWidget(w.id);

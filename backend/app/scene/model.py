@@ -19,7 +19,7 @@ _PATH = DATA_DIR / "scene.json"       # the active (currently shown) scene
 _SCENES_DIR = DATA_DIR / "scenes"     # saved, named scenes for reuse
 
 # Widget types the compositor knows how to draw.
-WIDGET_TYPES = {"clock", "text", "weather", "value", "image", "music", "nowplaying"}
+WIDGET_TYPES = {"clock", "text", "weather", "value", "image", "music", "nowplaying", "sprite"}
 
 
 @dataclass

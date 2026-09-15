@@ -23,6 +23,24 @@ const PATHS = {
   ),
   music: <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="2.2" /></>,
   nowplaying: <><path d="M9 18V5l10-2v11" /><circle cx="6" cy="18" r="3" /><circle cx="16" cy="16" r="3" /></>,
+  // the assistant: a little pixel ghost
+  sprite: (
+    <>
+      <path d="M5 21V10a7 7 0 0 1 14 0v11l-2.3-2-2.4 2-2.3-2-2.3 2-2.4-2L5 21Z" />
+      <path d="M9.5 11h.01M14.5 11h.01" />
+    </>
+  ),
+  bubble: <path d="M4 5h16v10h-9l-4 4v-4H4V5Z" />,
+  // sprite studio tools
+  crop: <><path d="M6 2v14a2 2 0 0 0 2 2h14" /><path d="M18 22V8a2 2 0 0 0-2-2H2" /></>,
+  film: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4" /></>,
+  zoomIn: <><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3M11 8v6M8 11h6" /></>,
+  zoomOut: <><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3M8 11h6" /></>,
+  fit: <><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3" /><rect x="8" y="8" width="8" height="8" rx="1" /></>,
+  pause: <path d="M8 5v14M16 5v14" />,
+  plus: <path d="M12 5v14M5 12h14" />,
+  chevronLeft: <path d="m15 6-6 6 6 6" />,
+  chevronRight: <path d="m9 6 6 6-6 6" />,
   // controls
   chevronUp: <path d="m6 15 6-6 6 6" />,
   chevronDown: <path d="m6 9 6 6 6-6" />,

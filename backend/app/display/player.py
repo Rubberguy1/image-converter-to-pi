@@ -242,10 +242,24 @@ class Player:
     # --- status ---
     def current_frames(self) -> list[Frame]:
         """A snapshot of the frames currently on the panel (empty if blank), so
-        the UI can mirror the live output."""
+        the UI can mirror the live output. Includes the notification overlay so
+        the mirror shows what the panel really shows."""
         with self._lock:
             frames, _ = self._effective_locked()
-            return list(frames)
+            overlay = self._overlay if not self._asleep else None
+            frames = list(frames)
+        if overlay is None:
+            return frames
+        if not frames:
+            base = Image.new("RGB", overlay.size, (0, 0, 0))
+            base.paste(overlay, (0, 0), overlay)
+            return [Frame(base)]
+        out = []
+        for f in frames:
+            im = f.image.convert("RGB")  # copy; don't mutate the cached frame
+            im.paste(overlay, (0, 0), overlay)
+            out.append(Frame(im, f.duration_ms))
+        return out
 
     def now_showing(self) -> NowShowing:
         with self._lock:

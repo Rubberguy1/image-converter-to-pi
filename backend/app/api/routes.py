@@ -9,6 +9,7 @@ import time
 from fastapi import (
     APIRouter,
     File,
+    Form,
     HTTPException,
     Request,
     UploadFile,
@@ -630,6 +631,15 @@ async def enable_scene(req: Request, body: SceneEnableIn):
     return _scene(req).status()
 
 
+@router.post("/music-mode")
+async def set_music_mode(req: Request, body: SceneEnableIn):
+    """Dedicate the panel to fullscreen now-playing art (clock when idle).
+    Album art is fed by the music poller, so enable Music sync for it to fill;
+    with sync off it shows the clock."""
+    _scene(req).set_music_mode(body.enabled)
+    return _scene(req).status()
+
+
 @router.post("/scene/value")
 async def push_scene_value(req: Request, body: SceneValueIn):
     _scene(req).push_value(body.name, body.value)
@@ -717,6 +727,225 @@ async def scene_preview(req: Request, body: dict):
     perf.preview.add((time.perf_counter() - t0) * 1000.0)
     resp.headers["Cache-Control"] = "no-store"
     return resp
+
+
+# --- sprites (the assistant's sprite sheets) ---
+class ClipIn(BaseModel):
+    frames: list[int] = Field(default_factory=list)
+    fps: float = Field(6.0, ge=0.5, le=60)
+    loop: bool = True
+
+
+class RegionIn(BaseModel):
+    id: str | None = None
+    sheet: str = ""
+    name: str = ""
+    x: int = Field(0, ge=0, le=8192)
+    y: int = Field(0, ge=0, le=8192)
+    w: int = Field(16, ge=1, le=8192)
+    h: int = Field(16, ge=1, le=8192)
+    cols: int = Field(1, ge=1, le=256)
+    rows: int = Field(1, ge=1, le=256)
+    gap_x: int = Field(0, ge=0, le=1024)
+    gap_y: int = Field(0, ge=0, le=1024)
+    order: str = "rows"  # rows | cols
+
+
+class TriggerIn(BaseModel):
+    id: str | None = None
+    event: str
+    clip: str = ""
+    params: dict = Field(default_factory=dict)
+
+
+class SheetNameIn(BaseModel):
+    id: str
+    name: str = ""
+
+
+class SpriteUpdateIn(BaseModel):
+    name: str | None = None
+    sheets: list[SheetNameIn] | None = None
+    transparent: str | None = None
+    anchor: str | None = None
+    idle_clip: str | None = None
+    regions: list[RegionIn] | None = None
+    clips: dict[str, ClipIn] | None = None
+    triggers: list[TriggerIn] | None = None
+
+
+class SpriteSayIn(BaseModel):
+    text: str = ""
+    clip: str = ""
+    duration: float = Field(5.0, ge=0.5, le=120)
+    widget_id: str | None = None
+
+
+def _sprites(req: Request):
+    return req.app.state.sprites
+
+
+def _require_sprite(req: Request, sprite_id: str):
+    sp = _sprites(req).get(sprite_id)
+    if not sp:
+        raise HTTPException(404, "sprite not found")
+    return sp
+
+
+@router.get("/sprites")
+async def list_sprites(req: Request):
+    from ..sprites import ANCHORS, PRESET_CLIPS, TRIGGER_EVENTS
+
+    return {
+        "sprites": [s.to_json() for s in _sprites(req).list()],
+        "presets": PRESET_CLIPS,
+        "events": TRIGGER_EVENTS,
+        "anchors": ANCHORS,
+    }
+
+
+@router.post("/sprites")
+async def upload_sprite(req: Request, file: UploadFile = File(...), name: str | None = Form(None)):
+    """Upload a sprite sheet. A first region is guessed (strip of squares /
+    common tile size) and every frame becomes an "idle" clip; refine in the studio."""
+    ext = (file.filename or "").rsplit(".", 1)[-1].lower()
+    if ext not in {"png", "gif", "webp", "bmp"}:
+        raise HTTPException(400, f"unsupported sheet type: .{ext} (use PNG with transparency)")
+    data = await file.read()
+    if len(data) > _MAX_UPLOAD:
+        raise HTTPException(413, "file too large (max 25 MB)")
+    try:
+        sp = _sprites(req).add(data, file.filename or f"sheet.{ext}", name)
+    except Exception as exc:
+        raise HTTPException(400, f"invalid image: {exc}")
+    return sp.to_json()
+
+
+@router.get("/sprites/{sprite_id}")
+async def get_sprite(req: Request, sprite_id: str):
+    return _require_sprite(req, sprite_id).to_json()
+
+
+@router.put("/sprites/{sprite_id}")
+async def update_sprite(req: Request, sprite_id: str, body: SpriteUpdateIn):
+    patch = body.model_dump(exclude_unset=True)
+    sp = _sprites(req).update(sprite_id, patch)
+    if not sp:
+        raise HTTPException(404, "sprite not found")
+    return sp.to_json()
+
+
+@router.delete("/sprites/{sprite_id}")
+async def delete_sprite(req: Request, sprite_id: str):
+    if not _sprites(req).delete(sprite_id):
+        raise HTTPException(404, "sprite not found")
+    return {"ok": True}
+
+
+def _sheet_response(sp, sheet_id: str | None) -> Response:
+    sh = sp.sheet(sheet_id)
+    if sh is None or (sheet_id and sh.id != sheet_id):
+        raise HTTPException(404, "sheet not found")
+    mime = "image/gif" if sh.ext == "gif" else f"image/{sh.ext}"
+    resp = Response((sp.dir / sh.file).read_bytes(), media_type=mime)
+    resp.headers["Cache-Control"] = "max-age=3600"  # the URL carries ?v=version
+    return resp
+
+
+@router.get("/sprites/{sprite_id}/sheet")
+async def sprite_sheet(req: Request, sprite_id: str):
+    """The sprite's first sheet (older callers)."""
+    return _sheet_response(_require_sprite(req, sprite_id), None)
+
+
+@router.get("/sprites/{sprite_id}/sheets/{sheet_id}")
+async def sprite_sheet_by_id(req: Request, sprite_id: str, sheet_id: str):
+    return _sheet_response(_require_sprite(req, sprite_id), sheet_id)
+
+
+@router.post("/sprites/{sprite_id}/sheets")
+async def sprite_add_sheet(req: Request, sprite_id: str, file: UploadFile = File(...), name: str | None = Form(None)):
+    """Attach another sheet to a sprite (its frames get sliced in the studio)."""
+    _require_sprite(req, sprite_id)
+    ext = (file.filename or "").rsplit(".", 1)[-1].lower()
+    if ext not in {"png", "gif", "webp", "bmp"}:
+        raise HTTPException(400, f"unsupported sheet type: .{ext} (use PNG with transparency)")
+    data = await file.read()
+    if len(data) > _MAX_UPLOAD:
+        raise HTTPException(413, "file too large (max 25 MB)")
+    try:
+        res = _sprites(req).add_sheet(sprite_id, data, file.filename or f"sheet.{ext}", name)
+    except Exception as exc:
+        raise HTTPException(400, f"invalid image: {exc}")
+    if not res:
+        raise HTTPException(404, "sprite not found")
+    sp, sheet = res
+    out = sp.to_json()
+    out["added_sheet"] = sheet.id
+    return out
+
+
+@router.delete("/sprites/{sprite_id}/sheets/{sheet_id}")
+async def sprite_remove_sheet(req: Request, sprite_id: str, sheet_id: str):
+    sp = _sprites(req).remove_sheet(sprite_id, sheet_id)
+    if not sp:
+        raise HTTPException(404, "sprite not found")
+    return sp.to_json()
+
+
+@router.get("/sprites/{sprite_id}/thumb")
+async def sprite_thumb(req: Request, sprite_id: str):
+    """First frame of the idle clip, integer-scaled to ~96px, for the library."""
+    from ..sprites import load_sheet
+
+    sp = _require_sprite(req, sprite_id)
+    _, clip = sp.clip_or_fallback(sp.idle_clip)
+    idx = clip.frames[0] if clip.frames else 0
+    sid, box = sp.frame_at(idx)
+    sheet = load_sheet(sp, sid)
+    cell = sheet.crop(box)
+    scale = max(1, 96 // max(cell.width, cell.height))
+    if scale > 1:
+        cell = cell.resize((cell.width * scale, cell.height * scale), Image.NEAREST)
+    buf = io.BytesIO()
+    cell.save(buf, format="PNG")
+    resp = Response(buf.getvalue(), media_type="image/png")
+    resp.headers["Cache-Control"] = "max-age=3600"
+    return resp
+
+
+@router.get("/sprites/{sprite_id}/preview")
+async def sprite_clip_preview(req: Request, sprite_id: str, clip: str = "idle", scale: int = 2):
+    """A clip as an animated GIF (over black, in the sprite's widget box) —
+    previews in the UI."""
+    from ..sprites import anchor_offset
+
+    sp = _require_sprite(req, sprite_id)
+    _, c = sp.clip_or_fallback(clip)
+    scale = max(1, min(8, scale))
+    frames = _scene(req)._sprite_renderer.frames(sp, scale, False)
+    if not frames:
+        raise HTTPException(400, "sheet could not be rendered")
+    bw, bh = sp.box
+    bw, bh = bw * scale, bh * scale
+    out = []
+    dur = max(20, round(1000 / max(0.5, c.fps)))
+    for i in (c.frames or [0]):
+        im = frames[max(0, min(len(frames) - 1, i))]
+        bg = Image.new("RGB", (bw, bh), (0, 0, 0))
+        bg.paste(im, anchor_offset(sp.anchor, bw, bh, im.width, im.height), im)
+        out.append(Frame(bg, dur))
+    resp = _frames_response(out)
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
+@router.post("/sprite/say")
+async def sprite_say(req: Request, body: SpriteSayIn):
+    """Make the scene's sprite say something (speech bubble + a clip). Any
+    external source can call this — a bot, Home Assistant, a script."""
+    n = _scene(req).say(body.text, body.clip, body.duration, body.widget_id)
+    return {"ok": True, "sprites": n}
 
 
 class IdentifyIn(BaseModel):

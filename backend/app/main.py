@@ -32,6 +32,7 @@ from .matrix import create_matrix
 from .music import MusicPoller
 from .notifications import NotificationManager
 from .scene import SceneRunner
+from .sprites import SpriteStore
 
 logging.basicConfig(
     level=logging.INFO,
@@ -58,9 +59,11 @@ async def lifespan(app: FastAPI):
     await poller.start()
     wled = WledSync(player, settings)
     await wled.start()
-    scene = SceneRunner(player, library, settings, music=poller)
+    sprites = SpriteStore()
+    scene = SceneRunner(player, library, settings, music=poller, sprites=sprites)
     await scene.start()
     notifications = NotificationManager(player, settings)
+    scene.attach_notifications(notifications)
     await notifications.start()
     gameservers = GameServerMonitor(notifications)
     await gameservers.start()
@@ -71,6 +74,7 @@ async def lifespan(app: FastAPI):
     app.state.poller = poller
     app.state.wled = wled
     app.state.scene = scene
+    app.state.sprites = sprites
     app.state.notifications = notifications
     app.state.gameservers = gameservers
     log.info("Pixel Pusher ready (matrix backend=%s)", matrix.backend)
