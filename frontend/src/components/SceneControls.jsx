@@ -3,7 +3,7 @@ import Icon from "./Icon.jsx";
 import RangeInput from "./RangeInput.jsx";
 import { api } from "../api.js";
 import CropModal from "./CropModal.jsx";
-import { SPRITE_BUBBLE_DEFAULTS } from "../hooks/useScene.js";
+import { SPRITE_BUBBLE_DEFAULTS, SPRITE_PRESENCE_DEFAULTS } from "../hooks/useScene.js";
 import NumInput from "./studio/NumInput.jsx";
 
 const EVENT_SHORT = {
@@ -68,6 +68,52 @@ export default function SceneControls({ sc, cols, rows, media, music, fonts, spr
           ? "Live on the panel · all changes saved."
           : "All changes saved · not shown on the panel yet."}
       </p>
+
+      <div className="settings-section">
+        <h4>Music mode</h4>
+        <label className="checkbox">
+          <input type="checkbox" checked={Boolean(scene.music?.enabled)} onChange={(e) => sc.setMusicMode(e.target.checked)} />
+          When a track plays, fade into fullscreen album art
+        </label>
+        <p className="field-hint">
+          Art is cropped to fill the panel and fades back to this scene when playback stops. Needs a Music source (header ▸ Music).
+        </p>
+        <div className="control">
+          <label>Art style · transition (s)</label>
+          <div className="row2">
+            <select value={scene.music?.style || "cover"} onChange={(e) => sc.updateMusic({ style: e.target.value })}>
+              <option value="cover">Cover (fill the panel)</option>
+              <option value="disc">Spinning disc</option>
+              <option value="visualizer">Visualizer (gradient in the art's colours)</option>
+            </select>
+            <NumInput min={0} max={10} step="0.1" value={(scene.music?.transition_ms ?? 800) / 1000} onChange={(n) => sc.updateMusic({ transition_ms: Math.round(n * 1000) })} aria-label="transition seconds" />
+          </div>
+        </div>
+        <label className="checkbox">
+          <input type="checkbox" checked={scene.music?.title !== false} onChange={(e) => sc.updateMusic({ title: e.target.checked })} />
+          Show track title &amp; artist
+        </label>
+        <div className="control">
+          <label>Waveform · colour</label>
+          <div className="row2">
+            <select value={scene.music?.waveform || "auto"} onChange={(e) => sc.updateMusic({ waveform: e.target.value })}>
+              <option value="off">Off</option>
+              <option value="auto">Live audio, else synthesized</option>
+              <option value="live">Live audio only</option>
+            </select>
+            <input type="color" value={scene.music?.wave_color || "#FFFFFF"} onChange={(e) => sc.updateMusic({ wave_color: e.target.value })} aria-label="waveform colour" />
+          </div>
+          <p className="field-hint">Live levels come from the browser: header ▸ Music ▸ "Send audio levels".</p>
+        </div>
+        <Slider label="Waveform height" value={scene.music?.wave_height ?? 0.35} min={0.1} max={0.9}
+          onChange={(v) => sc.updateMusic({ wave_height: v })} />
+        <Slider label="Dim art" value={scene.music?.dim ?? 0} min={0} max={0.8}
+          onChange={(v) => sc.updateMusic({ dim: v })} />
+        <label className="checkbox" title="Render the music view in the editor even with nothing playing">
+          <input type="checkbox" checked={Boolean(sc.musicPreview)} onChange={(e) => sc.setMusicPreview(e.target.checked)} />
+          Preview music mode in the editor
+        </label>
+      </div>
 
       <div className="settings-section">
         <h4>Background</h4>
@@ -333,8 +379,17 @@ export default function SceneControls({ sc, cols, rows, media, music, fonts, spr
           {sel.type === "sprite" && (() => {
             const sp = (sprites || []).find((s) => s.id === sel.config.sprite_id) || null;
             const bubble = { ...SPRITE_BUBBLE_DEFAULTS, ...(sel.config.bubble || {}) };
+            const presence = { ...SPRITE_PRESENCE_DEFAULTS, ...(sel.config.presence || {}) };
             const scale = Math.max(1, sel.config.scale || 1);
             const setBubble = (p) => sc.updateConfig(sel.id, { bubble: { ...bubble, ...p } });
+            const setPresence = (p) => sc.updateConfig(sel.id, { presence: { ...presence, ...p } });
+            const clipNames = sp ? Object.keys(sp.clips || {}) : [];
+            const wake = new Set(presence.wake_on || []);
+            const toggleWake = (ev) => {
+              const next = new Set(wake);
+              next.has(ev) ? next.delete(ev) : next.add(ev);
+              setPresence({ wake_on: [...next] });
+            };
             const sizeFor = (s, spr) => ({ w: (spr?.box?.w || 16) * s, h: (spr?.box?.h || 16) * s });
             const setScale = (v) => {
               const s = Math.max(1, Math.min(16, Math.round(Number(v) || 1)));
@@ -515,6 +570,60 @@ export default function SceneControls({ sc, cols, rows, media, music, fonts, spr
                     <div className="control">
                       <label>Preview text (editor only)</label>
                       <input type="text" value={bubble.sample ?? ""} onChange={(e) => setBubble({ sample: e.target.value })} />
+                    </div>
+                  </>
+                )}
+
+                <h4 className="sub">Presence</h4>
+                <div className="control">
+                  <label>On the panel</label>
+                  <select value={presence.mode || "always"} onChange={(e) => setPresence({ mode: e.target.value })}>
+                    <option value="always">Always on screen</option>
+                    <option value="on_events">Leave when idle, come back for events</option>
+                  </select>
+                </div>
+                {presence.mode === "on_events" && (
+                  <>
+                    <div className="control">
+                      <label>Leave after (s) · exit direction</label>
+                      <div className="row2">
+                        <NumInput min={0} max={3600} value={presence.idle_seconds ?? 10} onChange={(n) => setPresence({ idle_seconds: n })} aria-label="idle seconds" />
+                        <select value={presence.direction || "left"} onChange={(e) => setPresence({ direction: e.target.value })} aria-label="exit direction">
+                          <option value="left">Left</option>
+                          <option value="right">Right</option>
+                          <option value="up">Up</option>
+                          <option value="down">Down</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="control">
+                      <label>Leaving animation · travel time (s)</label>
+                      <div className="row2">
+                        <select value={presence.exit_clip || ""} onChange={(e) => setPresence({ exit_clip: e.target.value })} aria-label="exit animation">
+                          <option value="">— keep current —</option>
+                          {clipNames.map((n) => <option key={n} value={n}>{n}</option>)}
+                        </select>
+                        <NumInput min={0.1} max={30} step="0.1" value={presence.exit_seconds ?? 1} onChange={(n) => setPresence({ exit_seconds: n })} aria-label="exit seconds" />
+                      </div>
+                    </div>
+                    <div className="control">
+                      <label>Returning animation · travel time (s)</label>
+                      <div className="row2">
+                        <select value={presence.enter_clip || ""} onChange={(e) => setPresence({ enter_clip: e.target.value })} aria-label="enter animation">
+                          <option value="">— keep current —</option>
+                          {clipNames.map((n) => <option key={n} value={n}>{n}</option>)}
+                        </select>
+                        <NumInput min={0.1} max={30} step="0.1" value={presence.enter_seconds ?? 1} onChange={(n) => setPresence({ enter_seconds: n })} aria-label="enter seconds" />
+                      </div>
+                    </div>
+                    <div className="control">
+                      <label>Comes back (and stays) for</label>
+                      {[["say", "Told to say something"], ["notification", "Notifications"], ["track", "New track"], ["music", "Music playing"], ["value", "Value threshold"], ["time", "Time of day"]].map(([ev, label]) => (
+                        <label key={ev} className="checkbox">
+                          <input type="checkbox" checked={wake.has(ev)} onChange={() => toggleWake(ev)} /> {label}
+                        </label>
+                      ))}
+                      <p className="field-hint">It returns from the same direction it left, waits until it's fully in, then the bubble types. Anything still active keeps it on screen.</p>
                     </div>
                   </>
                 )}

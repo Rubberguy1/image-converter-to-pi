@@ -43,17 +43,36 @@ class Background:
     fit: str = "cover"
 
 
+def default_music() -> dict:
+    """Music mode: when a track plays, the scene crossfades into a fullscreen
+    view of the album art (cropped to the panel) with the title and, optionally,
+    a waveform of the audio. Per scene, so any scene can opt in."""
+    return {
+        "enabled": False,
+        "style": "cover",        # cover (art fills the panel) | disc (spinning disc) | visualizer
+        "viz": "gradient",       # visualizer flavour (more to come): gradient
+        "title": True,           # track title / artist band at the bottom
+        "waveform": "auto",      # off | auto (live levels, else synthesized) | live (only real audio)
+        "wave_color": "#FFFFFF",
+        "wave_height": 0.35,     # fraction of the panel height the bars may reach
+        "transition_ms": 800,    # crossfade in/out
+        "dim": 0.0,              # 0..0.8 darken the art so text/bars read better
+    }
+
+
 @dataclass
 class Scene:
     enabled: bool = False
     background: Background = field(default_factory=Background)
     widgets: list[Widget] = field(default_factory=list)
+    music: dict = field(default_factory=default_music)
 
     def to_json(self) -> dict:
         return {
             "enabled": self.enabled,
             "background": asdict(self.background),
             "widgets": [asdict(w) for w in self.widgets],
+            "music": {**default_music(), **(self.music or {})},
         }
 
     @classmethod
@@ -64,7 +83,8 @@ class Scene:
             if w.get("type") in WIDGET_TYPES and "id" in w:
                 base = Widget(id=w["id"], type=w["type"]).__dict__
                 widgets.append(Widget(**{**base, **{k: v for k, v in w.items() if k in base}}))
-        return cls(enabled=bool(data.get("enabled", False)), background=bg, widgets=widgets)
+        music = {**default_music(), **{k: v for k, v in (data.get("music") or {}).items() if k in default_music()}}
+        return cls(enabled=bool(data.get("enabled", False)), background=bg, widgets=widgets, music=music)
 
 
 def load_scene() -> Scene:

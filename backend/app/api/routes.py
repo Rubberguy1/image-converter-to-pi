@@ -28,7 +28,7 @@ from ..display import Player
 from ..imaging import Frame, render_to_frames, simulate_bit_depth
 from ..library import LibraryStore, MediaItem
 from ..library.store import RenderSettings
-from ..music import MusicPoller, record_now_playing
+from ..music import MusicPoller, record_levels, record_now_playing
 
 router = APIRouter()
 
@@ -633,11 +633,22 @@ async def enable_scene(req: Request, body: SceneEnableIn):
 
 @router.post("/music-mode")
 async def set_music_mode(req: Request, body: SceneEnableIn):
-    """Dedicate the panel to fullscreen now-playing art (clock when idle).
-    Album art is fed by the music poller, so enable Music sync for it to fill;
-    with sync off it shows the clock."""
+    """Turn the active scene's music mode on/off (persisted with the scene).
+    When on, playback crossfades the scene into fullscreen album art with the
+    title and an optional waveform; it fades back when playback stops."""
     _scene(req).set_music_mode(body.enabled)
     return _scene(req).status()
+
+
+class LevelsIn(BaseModel):
+    bands: list[float] = Field(default_factory=list, max_length=64)
+
+
+@router.post("/music/levels")
+async def music_levels(body: LevelsIn):
+    """Live audio levels from a browser (0..1 per band, a few times a second)
+    for the music-mode waveform. Stale levels expire on their own."""
+    return {"ok": True, "bands": record_levels(body.bands)}
 
 
 @router.post("/scene/value")
@@ -711,10 +722,11 @@ async def named_scene_preview(req: Request, name: str):
 
 
 @router.post("/scene/preview")
-async def scene_preview(req: Request, body: dict):
+async def scene_preview(req: Request, body: dict, music: bool = False):
     """Render a (possibly unsaved) scene for the editor's live preview. Returns an
     animated GIF (playing the scene's animation loop natively in the browser) when
-    anything animates, otherwise a static PNG."""
+    anything animates, otherwise a static PNG. `music=1` forces the music-mode
+    view so it can be designed without a track playing."""
     from ..scene import Scene
 
     runner = _scene(req)
@@ -723,7 +735,7 @@ async def scene_preview(req: Request, body: dict):
     except Exception as exc:
         raise HTTPException(400, f"invalid scene: {exc}")
     t0 = time.perf_counter()
-    resp = _frames_response(runner.render_animation(scene))
+    resp = _frames_response(runner.render_animation(scene, music_preview=music))
     perf.preview.add((time.perf_counter() - t0) * 1000.0)
     resp.headers["Cache-Control"] = "no-store"
     return resp

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { api } from "../api.js";
+import AudioLevels from "./AudioLevels.jsx";
 
 const PROVIDERS = [
   { value: "none", label: "Off" },
@@ -98,6 +99,8 @@ export default function MusicPanel({ music, onChanged, onToast }) {
           />
         </div>
       )}
+
+      <AudioLevels onToast={onToast} />
 
       <div className="music-status">
         {music.error && <p className="err">⚠ {music.error}</p>}

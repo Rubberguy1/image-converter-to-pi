@@ -101,8 +101,25 @@ Frontend (`frontend/src/`):
 }
 ```
 
+Presence (per widget, `config.presence`): `mode` `always` keeps the sprite on
+the panel; `on_events` makes it leave after `idle_seconds` with no event, in
+`direction` (left/right/up/down) over `exit_seconds` playing `exit_clip`, and
+come back the same way over `enter_seconds` playing `enter_clip` when one of
+`wake_on` (say, notification, track, music, value, time) happens. A bubble that
+arrives while it is off-screen waits until it is fully in, then types.
+
+```json
+"presence": { "mode": "on_events", "idle_seconds": 10, "direction": "left",
+              "exit_clip": "walk", "enter_clip": "walk", "exit_seconds": 1, "enter_seconds": 1,
+              "wake_on": ["say", "notification", "track"] }
+```
+
 Which animation plays is decided by the **sprite's** triggers, so every scene
-that places it behaves the same. Unknown or removed sprites render a small "?"
+that places it behaves the same. Bubble options (announce tracks, present
+notifications) only control whether *text* is shown; the event's animation
+fires regardless. The backend logs `track change detected: …` and
+`sprite <id>: idle -> wave (track)` at INFO, so `journalctl -u pixel-pusher -f`
+(or the dev terminal) shows exactly what fired. Unknown or removed sprites render a small "?"
 placeholder so the layout still previews.
 
 ## Sprite JSON (as the API returns it)

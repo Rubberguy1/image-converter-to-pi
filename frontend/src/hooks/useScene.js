@@ -22,6 +22,17 @@ export const SPRITE_BUBBLE_DEFAULTS = {
   tail_at: null, // 0..1 along that edge; null = aim at the sprite
   sample: "Hi!",
 };
+// Presence: stay on the panel, or leave when idle and return for events.
+export const SPRITE_PRESENCE_DEFAULTS = {
+  mode: "always", // always | on_events
+  idle_seconds: 10,
+  direction: "left", // left | right | up | down
+  exit_clip: "",
+  enter_clip: "",
+  exit_seconds: 1,
+  enter_seconds: 1,
+  wake_on: ["say", "notification", "track"],
+};
 // Text widgets that carry an explicit text box (w×h) the text wraps/clips within.
 const TEXT_TYPES = new Set(["clock", "text", "weather", "value", "nowplaying"]);
 
@@ -29,6 +40,7 @@ const TEXT_TYPES = new Set(["clock", "text", "weather", "value", "nowplaying"]);
 function withBoxes(scene) {
   return {
     ...scene,
+    music: { ...MUSIC_MODE_DEFAULTS, ...(scene.music || {}) },
     widgets: (scene.widgets || []).map((w) => {
       if (!TEXT_TYPES.has(w.type) || (w.config && w.config.w)) return w;
       const size = w.size || 8;
@@ -38,10 +50,25 @@ function withBoxes(scene) {
   };
 }
 
+// Music mode (per scene): when a track plays, crossfade into fullscreen album
+// art with the title and an optional waveform. Mirrors backend default_music().
+export const MUSIC_MODE_DEFAULTS = {
+  enabled: false,
+  style: "cover", // cover | disc | visualizer
+  viz: "gradient", // visualizer flavour
+  title: true,
+  waveform: "auto", // off | auto | live
+  wave_color: "#FFFFFF",
+  wave_height: 0.35,
+  transition_ms: 800,
+  dim: 0,
+};
+
 const DEFAULT_SCENE = {
   enabled: false,
   background: { type: "none", color: "#000000", media_id: null, fit: "cover" },
   widgets: [],
+  music: { ...MUSIC_MODE_DEFAULTS },
 };
 
 export function newWidget(type, cols, rows) {
@@ -75,6 +102,7 @@ export function newWidget(type, cols, rows) {
       h: 16,
       flip: false,
       bubble: { ...SPRITE_BUBBLE_DEFAULTS },
+      presence: { ...SPRITE_PRESENCE_DEFAULTS },
     };
   }
   if (TEXT_TYPES.has(type)) {
@@ -91,7 +119,9 @@ export function useScene(onToast, onChanged, media = []) {
   const [selId, setSelId] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [saved, setSaved] = useState([]);
-  const [musicMode, setMusicModeState] = useState(false);
+  const [musicPreview, setMusicPreview] = useState(false); // editor: force the music-mode view
+  const musicPreviewRef = useRef(false);
+  musicPreviewRef.current = musicPreview;
   const [dirty, setDirty] = useState(false); // edits not yet saved to the Pi
   const savedRef = useRef(scene);             // the scene as last saved/loaded
   const timer = useRef(null);
@@ -180,7 +210,6 @@ export function useScene(onToast, onChanged, media = []) {
           savedRef.current = s;
           setDirty(false);
         }
-        if (r.status) setMusicModeState(!!r.status.music_mode);
       })
       .catch(() => {});
     refreshSaved();
@@ -207,7 +236,7 @@ export function useScene(onToast, onChanged, media = []) {
 
   const fetchPreview = useCallback(async () => {
     try {
-      const url = await api.scenePreviewUrl(sceneRef.current);
+      const url = await api.scenePreviewUrl(sceneRef.current, musicPreviewRef.current);
       setPreviewUrl((old) => {
         if (old) URL.revokeObjectURL(old);
         return url;
@@ -222,7 +251,7 @@ export function useScene(onToast, onChanged, media = []) {
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(fetchPreview, 250);
     return () => clearTimeout(timer.current);
-  }, [scene, fetchPreview]);
+  }, [scene, musicPreview, fetchPreview]);
 
   // When the scene contains animated media (a GIF, or a spinning disc), the
   // preview is an animated GIF that plays itself — polling would restart it every
@@ -373,16 +402,21 @@ export function useScene(onToast, onChanged, media = []) {
     canRedo,
     dirty,
     toast: onToast,
-    musicMode,
+    // Music mode is part of the scene; the header/mobile toggle persists it
+    // immediately (like Show on panel), other music settings save with the scene.
+    musicMode: Boolean(scene.music?.enabled),
+    musicPreview,
+    setMusicPreview,
+    updateMusic: (patch) => setScene((s) => ({ ...s, music: { ...MUSIC_MODE_DEFAULTS, ...(s.music || {}), ...patch } })),
     setMusicMode: async (on) => {
-      setMusicModeState(on); // optimistic
+      const next = { ...sceneRef.current, music: { ...MUSIC_MODE_DEFAULTS, ...(sceneRef.current.music || {}), enabled: on } };
+      setScene(next);
+      savedRef.current = { ...savedRef.current, music: next.music };
       try {
-        const st = await api.setMusicMode(on);
-        setMusicModeState(!!st.music_mode);
-        onToast(on ? "Music mode on" : "Music mode off");
+        await api.setMusicMode(on);
+        onToast(on ? "Music mode on — plays fullscreen art when a track starts" : "Music mode off");
         onChanged && onChanged();
       } catch (e) {
-        setMusicModeState(!on); // revert
         onToast(`Error: ${e.message}`, true);
       }
     },

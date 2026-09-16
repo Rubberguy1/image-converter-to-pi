@@ -10,8 +10,10 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
+import math
+
 import httpx
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageEnhance
 
 from .. import perf
 from ..config import Settings
@@ -28,7 +30,8 @@ from ..imaging import (
 )
 from ..library import LibraryStore
 from ..library.store import RenderSettings
-from .model import Background, Scene, Widget, load_scene, save_scene
+from ..music import current_levels, synth_levels
+from .model import Background, Scene, Widget, default_music, load_scene, save_scene
 from .pixelfont import get_font
 from .render import (
     box_for,
@@ -64,6 +67,19 @@ _DEFAULT_BUBBLE = {
     "sample": "Hi!",         # shown in the editor preview so you can place it
 }
 
+# Presence: whether the sprite stays on the panel, or leaves when nothing is
+# happening and comes back for events (per widget, in config.presence).
+_DEFAULT_PRESENCE = {
+    "mode": "always",        # always | on_events
+    "idle_seconds": 10,      # how long after the last event before it leaves
+    "direction": "left",     # left | right | up | down — where it exits (and returns from)
+    "exit_clip": "",         # animation while leaving ("" = keep current)
+    "enter_clip": "",        # animation while returning ("" = keep current)
+    "exit_seconds": 1.0,
+    "enter_seconds": 1.0,
+    "wake_on": ["say", "notification", "track"],  # events that bring it back / keep it
+}
+
 
 @dataclass
 class _SpriteState:
@@ -77,6 +93,11 @@ class _SpriteState:
     # Speech bubble typewriter: the text being shown and when it started.
     bubble_text: str = ""
     bubble_started: float = 0.0
+    pending_text: str = ""      # text that arrived while the sprite was off-screen
+    # Presence (off-screen when idle): in | leaving | out | entering
+    phase: str = "in"
+    phase_started: float = 0.0
+    last_event_at: float = 0.0
 
 
 def _opts_key(cfg: dict) -> tuple:
@@ -146,6 +167,8 @@ class SceneRunner:
         # Circular paste masks — cheap, main-thread only, kept out of the shared
         # cache so they never contend with the worker.
         self._mask_cache: dict[tuple, Image.Image] = {}
+        # Album-art palettes for the visualizer, keyed by track.
+        self._palette_cache: dict[str, tuple] = {}
         # The compositor ticks as fast as the fastest on-screen animation needs
         # (so GIFs play at native speed), capped only to bound runaway frame
         # rates. 60 covers every real-world GIF; 64x64 compositing is trivially
@@ -155,11 +178,11 @@ class SceneRunner:
         self._idle_interval = 0.5
         self._min_frame_ms: float | None = None
         self._task: asyncio.Task | None = None
-        # Music mode: a runtime override that dedicates the panel to fullscreen
-        # now-playing art, falling back to a clock when nothing plays. Rendered
-        # by the same compositor but never persisted, so it doesn't touch the
-        # user's saved scene.
-        self._music_mode = False
+        # Music mode is a per-scene setting (scene.music). While a track plays
+        # the composite crossfades into the fullscreen music view; this is the
+        # current blend (0 = scene, 1 = music view) and when it was last stepped.
+        self._music_blend = 0.0
+        self._blend_at = time.monotonic()
 
     # --- lifecycle ---
     async def start(self) -> None:
@@ -215,25 +238,26 @@ class SceneRunner:
         self._values[name] = value
 
     def set_music_mode(self, on: bool) -> None:
-        """Turn the fullscreen music-mode override on or off. Turning it off
-        hands the panel back to the saved scene (or blanks it if disabled)."""
-        self._music_mode = bool(on)
-        if not self._music_mode and not self.scene.enabled:
-            self._player.clear_scene()
-        log.info("music mode %s", "ON" if self._music_mode else "OFF")
+        """Turn the active scene's music mode on/off and persist it."""
+        music = {**default_music(), **(self.scene.music or {})}
+        music["enabled"] = bool(on)
+        self.scene.music = music
+        save_scene(self.scene)
+        log.info("music mode %s", "ON" if on else "OFF")
 
     def music_mode(self) -> bool:
-        return self._music_mode
+        return bool((self.scene.music or {}).get("enabled"))
 
     def status(self) -> dict:
         return {
             "enabled": self.scene.enabled,
-            "music_mode": self._music_mode,
+            "music_mode": self.music_mode(),
+            "music_blend": round(self._music_blend, 2),
             "widgets": len(self.scene.widgets),
             "weather": self._weather,
             "values": self._values,
             "sprites": {
-                wid: {"clip": st.clip, "saying": st.say_until > time.monotonic()}
+                wid: {"clip": st.clip, "saying": st.say_until > time.monotonic(), "phase": st.phase}
                 for wid, st in self._sprite_states.items()
             },
         }
@@ -243,13 +267,7 @@ class SceneRunner:
         log_at = 0.0
         while True:
             try:
-                if self._music_mode:
-                    self._set_banner_suppressed(False)
-                    self._min_frame_ms = None
-                    frame = self.render(self._music_mode_scene())
-                    self._player.set_scene(frame)
-                    await asyncio.sleep(self._tick_interval())
-                elif self.scene.enabled:
+                if self.scene.enabled:
                     await self._maybe_refresh_weather()
                     self._update_signals()
                     t0 = time.perf_counter()
@@ -326,6 +344,7 @@ class SceneRunner:
             self._last_track_key = key
             if key:
                 self._track_changed_at = now
+                log.info("track change detected: %s", key.replace("\u241f", " / "))
         presenting = any(
             w.type == "sprite" and not getattr(w, "hidden", False)
             and (w.config or {}).get("sprite_id")
@@ -343,33 +362,10 @@ class SceneRunner:
     def _bubble_cfg(cfg: dict) -> dict:
         return {**_DEFAULT_BUBBLE, **(cfg.get("bubble") or {})}
 
-    def _music_mode_scene(self) -> Scene:
-        """Build the music-mode scene for this tick: fullscreen album art when
-        something is playing, otherwise a big centred clock. Regenerated each
-        tick so it swaps the moment playback starts or stops."""
-        cw, ch = self._settings.content_size
-        np = self._music.now_playing() if self._music else None
-        art = self._music.art_bytes() if self._music else None
-        black = Background(type="color", color="#000000")
-
-        if np and np.playing and art:
-            widget = Widget(
-                id="mm-art", type="music", x=0, y=0,
-                config={"w": cw, "h": ch, "fit": "cover", "disc": False},
-            )
-        else:
-            size = max(8, round(ch * 0.42))
-            y = max(0, (ch - size) // 2 - 1)
-            widget = Widget(
-                id="mm-clock", type="clock", x=0, y=y,
-                color="#FFFFFF", size=size, align="center",
-                config={"w": cw, "h": ch - y, "format": "%H:%M"},
-            )
-        return Scene(enabled=True, background=black, widgets=[widget])
-
-    def render(self, scene: Scene, at_ms: float | None = None) -> Image.Image:
+    def render(self, scene: Scene, at_ms: float | None = None, music_preview: bool = False) -> Image.Image:
         """Composite any scene at the panel content size (used live + for preview).
-        `at_ms` overrides the animation clock so a whole loop can be rendered."""
+        `at_ms` overrides the animation clock so a whole loop can be rendered.
+        `music_preview` forces the music-mode view (editor design aid)."""
         cw, ch = self._settings.content_size
         base = self._background(scene.background, cw, ch, at_ms)
         ctx = {"weather": self._weather, "values": self._values}
@@ -389,15 +385,221 @@ class SceneRunner:
                     draw_widget(base, widget, ctx, cw, ch)
             except Exception:
                 log.debug("widget %s draw failed", widget.id, exc_info=True)
+        try:
+            base = self._apply_music_mode(base, scene, at_ms, music_preview)
+        except Exception:
+            log.debug("music mode render failed", exc_info=True)
         return base
 
-    def render_animation(self, scene: Scene, max_frames: int = 60, max_ms: int = 6000):
+    # --- music mode: crossfade the scene into fullscreen now-playing art ---
+    def _apply_music_mode(self, base: Image.Image, scene: Scene, at_ms, music_preview: bool) -> Image.Image:
+        mm = {**default_music(), **(scene.music or {})}
+        if not mm.get("enabled") and not music_preview:
+            return base
+        preview = at_ms is not None
+        cw, ch = base.size
+        np = self._music.now_playing() if self._music else None
+        art = self._music.art_bytes() if self._music else None
+        playing = bool(np and np.playing and art)
+        key = np.track_key if playing else None
+
+        # Is the fullscreen art ready? (rendered off-loop; kicks off the render)
+        ready = False
+        if playing:
+            if mm.get("style") == "disc":
+                ready = self._music_disc_frame(art, cw, ch, key, at_ms) is not None
+            else:
+                ready = self._music_tile(art, cw, ch, "cover", key) is not None
+
+        if preview:
+            blend = 1.0 if (music_preview or ready) else 0.0
+        else:
+            target = 1.0 if ready else 0.0
+            now = time.monotonic()
+            dt = min(0.5, max(0.0, now - self._blend_at))
+            self._blend_at = now
+            step = dt / max(0.05, float(mm.get("transition_ms", 800) or 800) / 1000.0)
+            delta = max(-step, min(step, target - self._music_blend))
+            self._music_blend = max(0.0, min(1.0, self._music_blend + delta))
+            blend = self._music_blend
+            if blend != target:
+                self._note_anim(33.0, 0)  # keep the crossfade smooth
+            if blend > 0:
+                self._note_anim(66.0, 0)  # waveform / marquee liveness
+        if blend <= 0:
+            return base
+        view = self._music_view(mm, cw, ch, np if playing else None, art if playing else None, key, at_ms)
+        if blend >= 1:
+            return view
+        return Image.blend(base.convert("RGB"), view.convert("RGB"), blend)
+
+    def _music_view(self, mm: dict, cw: int, ch: int, np, art, key, at_ms) -> Image.Image:
+        """The fullscreen music layer: album art cropped to the panel (or the
+        spinning disc), an optional dim, an optional waveform, and the title."""
+        t = (at_ms / 1000.0) if at_ms is not None else time.monotonic()
+        img = None
+        style = str(mm.get("style") or "cover")
+        levels = None
+        wf = str(mm.get("waveform", "auto") or "off")
+        if wf != "off" or style == "visualizer":
+            levels = current_levels()
+            if levels is None and wf != "live":
+                levels = synth_levels(24, t)
+        if style == "visualizer":
+            img = self._visualizer(mm, cw, ch, t, levels, art, key)
+        elif art is not None:
+            if style == "disc":
+                img = self._music_disc_frame(art, cw, ch, key, at_ms)
+            else:
+                img = self._music_tile(art, cw, ch, "cover", key)
+        if img is None:
+            # Nothing playing (editor preview): a quiet gradient + a note.
+            img = Image.new("RGB", (cw, ch), (0, 0, 0))
+            d = ImageDraw.Draw(img)
+            for yy in range(ch):
+                k = yy / max(1, ch - 1)
+                d.line([(0, yy), (cw, yy)], fill=(int(20 + 30 * k), int(18 + 20 * k), int(40 + 50 * k)))
+            font = get_font("5x7")
+            ns = max(1, min(cw, ch) // 16)
+            draw_pixel_text(img, (cw - 5 * ns) // 2, (ch - font.height * ns) // 2 - ns * 3, "♪", (220, 220, 240), ns, font)
+        else:
+            img = img.convert("RGB")
+        dim = max(0.0, min(0.8, float(mm.get("dim", 0.0) or 0.0)))
+        if dim > 0:
+            img = ImageEnhance.Brightness(img).enhance(1.0 - dim)
+
+        font = get_font("5x7")
+        tscale = max(1, round(min(cw, ch) / 64))
+        title_h = 0
+        show_title = bool(mm.get("title", True))
+        if show_title:
+            lines = 2 if (np is None or np.artist) else 1
+            title_h = lines * (font.height + 1) * tscale + 2 * tscale + 1
+
+        # Waveform bars above the title band.
+        if wf != "off" and levels:
+            self._draw_waveform(img, levels, cw, ch - title_h, mm)
+
+        if show_title:
+            band = Image.new("RGBA", (cw, title_h), (0, 0, 0, 150))
+            img.paste(band, (0, ch - title_h), band)
+            if np is None:
+                title, artist = "No track", "music mode preview"
+            else:
+                title, artist = (np.title or np.album or "Now playing"), (np.artist or "")
+            self._draw_marquee(img, title, 2, ch - title_h + tscale + 1, cw - 4, font, tscale, (255, 255, 255), t)
+            if artist and (np is None or np.artist):
+                self._draw_marquee(img, artist, 2, ch - title_h + tscale + 1 + (font.height + 1) * tscale, cw - 4, font, tscale, (200, 204, 214), t)
+        return img
+
+    # --- visualizer (music-mode art style) ---
+    def _art_palette(self, art, key) -> tuple[tuple, tuple]:
+        """Two colours drawn from the album art (its average and its most
+        saturated pixel), cached per track. Falls back to the board palette."""
+        if art is None or not key:
+            return ((255, 182, 46), (51, 214, 166))
+        got = self._palette_cache.get(key)
+        if got is not None:
+            return got
+        try:
+            im = Image.open(__import__("io").BytesIO(art)).convert("RGB").resize((12, 12), Image.BILINEAR)
+            px = list(im.getdata())
+            avg = tuple(sum(c[i] for c in px) // len(px) for i in range(3))
+            def sat(c):
+                mx, mn = max(c), min(c)
+                return (mx - mn) / mx if mx else 0
+            vivid = max(px, key=lambda c: sat(c) * (0.3 + 0.7 * max(c) / 255))
+            # Keep both bright enough to read on LEDs.
+            def lift(c, floor=70):
+                mx = max(c)
+                return c if mx >= floor else tuple(min(255, int(v * floor / max(1, mx))) for v in c)
+            pal = (lift(vivid), lift(avg))
+        except Exception:
+            pal = ((255, 182, 46), (51, 214, 166))
+        if len(self._palette_cache) > 16:
+            self._palette_cache.pop(next(iter(self._palette_cache)))
+        self._palette_cache[key] = pal
+        return pal
+
+    def _visualizer(self, mm, cw, ch, t, levels, art, key) -> Image.Image:
+        """"gradient": a slow diagonal two-colour gradient in the album art's
+        colours, breathing with the overall level and rippling per band.
+        Rendered at low resolution and upscaled bilinearly (smooth + cheap on
+        a Pi). `viz` selects the flavour; only "gradient" exists so far."""
+        c1, c2 = self._art_palette(art, key)
+        lv = levels or []
+        energy = (sum(lv) / len(lv)) if lv else 0.4
+        rw, rh = max(2, min(32, cw)), max(2, min(32, ch))
+        small = Image.new("RGB", (rw, rh))
+        px = small.load()
+        n = len(lv)
+        for y in range(rh):
+            for x in range(rw):
+                # Diagonal phase that drifts with time; a triangle wave so the
+                # blend loops smoothly c1 -> c2 -> c1.
+                k = ((x / rw) * 0.7 + (y / rh) * 0.5 + t * 0.12) % 1.0
+                m = 1.0 - abs(2.0 * k - 1.0)
+                # Band ripple: the column's level lifts brightness a little.
+                band = lv[int(x / rw * n)] if n else 0.0
+                bright = 0.45 + 0.4 * energy + 0.25 * band
+                bright *= 0.85 + 0.15 * math.sin(t * 2.0 + y * 0.3)
+                r = c1[0] * (1 - m) + c2[0] * m
+                g = c1[1] * (1 - m) + c2[1] * m
+                b = c1[2] * (1 - m) + c2[2] * m
+                px[x, y] = (
+                    max(0, min(255, int(r * bright))),
+                    max(0, min(255, int(g * bright))),
+                    max(0, min(255, int(b * bright))),
+                )
+        return small.resize((cw, ch), Image.BILINEAR)
+
+    def _draw_marquee(self, img, text, x, y, w, font, scale, color, t) -> None:
+        """Text at (x, y) within width w; scrolls left when it doesn't fit."""
+        tw = font.text_width(text, scale)
+        strip = Image.new("RGB", (max(1, w), (font.height + 1) * scale), (0, 0, 0))
+        # Draw onto a strip with a mask so only the glyphs land on the image.
+        mask = Image.new("L", strip.size, 0)
+        if tw <= w:
+            font.draw(mask, 0, 0, text, 255, scale)
+        else:
+            gap = w // 2
+            off = int((t * 20 * scale) % (tw + gap))
+            font.draw(mask, -off, 0, text, 255, scale)
+            font.draw(mask, -off + tw + gap, 0, text, 255, scale)
+        colour = Image.new("RGB", strip.size, color)
+        img.paste(colour, (x, y), mask)
+
+    def _draw_waveform(self, img, levels, cw: int, bottom: int, mm: dict) -> None:
+        n = max(4, min(len(levels), cw // 2))
+        # Resample the bands to n bars.
+        bars = []
+        for i in range(n):
+            a = i * len(levels) / n
+            b = (i + 1) * len(levels) / n
+            lo, hi = int(a), max(int(a) + 1, int(b))
+            seg = levels[lo:hi] or [0.0]
+            bars.append(sum(seg) / len(seg))
+        max_h = max(2, int(bottom * max(0.05, min(0.9, float(mm.get("wave_height", 0.35) or 0.35)))))
+        colour = hex_rgb(str(mm.get("wave_color", "#FFFFFF") or "#FFFFFF"))
+        layer = Image.new("RGBA", (cw, bottom), (0, 0, 0, 0))
+        d = ImageDraw.Draw(layer)
+        bw = cw / n
+        for i, v in enumerate(bars):
+            h = max(1, int(round(v * max_h)))
+            x0 = int(round(i * bw))
+            x1 = max(x0, int(round((i + 1) * bw)) - 2)
+            d.rectangle([x0, bottom - h, x1, bottom - 1], fill=colour + (215,))
+        img.paste(layer, (0, 0), layer)
+
+    def render_animation(self, scene: Scene, max_frames: int = 60, max_ms: int = 6000, music_preview: bool = False):
         """Render one full animation loop of the scene as a list of Frames (for a
         natively-playing animated-GIF preview). Returns a single frame if nothing
         in the scene animates."""
         self._anim_total = 0
         self._min_frame_ms = None
-        first = self.render(scene, at_ms=0)  # probe: fills caches + animation stats
+        first = self.render(scene, at_ms=0, music_preview=music_preview)  # probe: fills caches + animation stats
+        if music_preview and (scene.music or {}).get("waveform", "auto") != "off":
+            self._note_anim(100.0, 2000)  # animate the synthesized waveform in the preview
         if not self._anim_total or not self._min_frame_ms:
             return [Frame(first)]
         period = min(self._anim_total, max_ms)
@@ -405,7 +607,7 @@ class SceneRunner:
         step = max(self._min_frame_ms, 30.0, period / max_frames)
         n = max(1, min(max_frames, round(period / step)))
         step = period / n
-        return [Frame(self.render(scene, at_ms=round(i * step)), round(step)) for i in range(n)]
+        return [Frame(self.render(scene, at_ms=round(i * step), music_preview=music_preview), round(step)) for i in range(n)]
 
     def _background(self, bg, cw: int, ch: int, at_ms=None) -> Image.Image:
         if bg.type == "color":
@@ -554,16 +756,18 @@ class SceneRunner:
 
     def _sprite_intent(self, sp, cfg: dict, state: _SpriteState, now: float, preview: bool):
         """Decide what the sprite should be doing this tick: (clip name, bubble
-        text). Walks the sprite's trigger list in priority order; the first
-        event that is happening wins. An explicit `say` is always honoured even
-        if the sprite has no say trigger (the API asked for it)."""
+        text, event). Walks the sprite's trigger list in priority order; the
+        first event that is happening wins. An explicit `say` is always honoured
+        even if the sprite has no say trigger (the API asked for it). Bubble
+        options only decide whether TEXT is shown — never whether the event's
+        animation fires."""
         bub = self._bubble_cfg(cfg)
         idle = sp.idle_clip or "idle"
         bubbles = bool(bub.get("enabled", True))
 
         if preview:
             # The editor: idle clip + the sample bubble so it can be positioned.
-            return idle, (str(bub.get("sample") or "") if bubbles else "")
+            return idle, (str(bub.get("sample") or "") if bubbles else ""), None
 
         # Priority is by event kind (say > notification > track > music > value
         # > time); among triggers of the same kind, the sprite's list order wins.
@@ -587,35 +791,38 @@ class SceneRunner:
             ev = t.event
             if ev == "say":
                 if say_clip:
-                    return say_clip, (state.say_text if bubbles else "")
+                    return say_clip, (state.say_text if bubbles else ""), "say"
             elif ev == "notification":
-                if cur is not None and bub.get("notifications", True):
+                if cur is not None:
                     parts = [p for p in (cur.title, cur.message) if p]
                     text = "\n".join(parts) if parts else cur.source
-                    return (t.clip or idle), (text if bubbles else "")
+                    show = bubbles and bub.get("notifications", True)
+                    return (t.clip or idle), (text if show else ""), "notification"
             elif ev == "track":
                 secs = float((t.params or {}).get("seconds", bub.get("track_seconds", 6.0)) or 6.0)
-                if playing and bub.get("track", True) and now - self._track_changed_at < secs:
+                if playing and now - self._track_changed_at < secs:
                     text = f"♪ {np.title or np.album or 'Now playing'}"
                     if np.artist:
                         text += f"\n{np.artist}"
-                    return (t.clip or music_clip or idle), (text if bubbles else "")
+                    show = bubbles and bub.get("track", True)
+                    return (t.clip or music_clip or idle), (text if show else ""), "track"
             elif ev == "music":
                 if playing and t.clip:
-                    return t.clip, ""
+                    return t.clip, "", "music"
             elif ev == "value":
                 if t.clip and self._value_matches(t.params or {}, self._values):
-                    return t.clip, ""
+                    return t.clip, "", "value"
             elif ev == "time":
                 if t.clip and self._time_matches(t.params or {}):
-                    return t.clip, ""
+                    return t.clip, "", "time"
         if say_clip:  # no say trigger listed, but the API asked — still speak
-            return say_clip, (state.say_text if bubbles else "")
-        return idle, ""
+            return say_clip, (state.say_text if bubbles else ""), "say"
+        return idle, "", None
 
     def _draw_sprite(self, base: Image.Image, widget, at_ms=None) -> None:
         """A sprite-sheet character: plays the clip its situation calls for,
-        integer-scaled and alpha-pasted, with an optional speech bubble."""
+        integer-scaled and alpha-pasted, with an optional speech bubble — and,
+        optionally, leaves the panel when idle and returns for events."""
         cfg = widget.config or {}
         sp = self._sprites.get(cfg.get("sprite_id")) if self._sprites else None
         x, y = int(widget.x), int(widget.y)
@@ -636,37 +843,101 @@ class SceneRunner:
         now = time.monotonic()
         # Previews (editor / thumbnails) must not disturb the live clip timing.
         state = _SpriteState() if preview else self._sprite_states.setdefault(widget.id, _SpriteState())
-        clip_name, bubble_text = self._sprite_intent(sp, cfg, state, now, preview)
-
-        # Typewriter: text reveals at `cps`; the talking animation plays only
-        # while characters are still arriving, then the sprite goes back to
-        # what it would otherwise be doing (music → dance, else idle) while the
-        # finished bubble lingers for `hold` seconds.
+        clip_name, bubble_text, event = self._sprite_intent(sp, cfg, state, now, preview)
         bub = self._bubble_cfg(cfg)
+        cw, ch = base.size
+        bw, bh = sp.box
+        bw, bh = bw * scale, bh * scale
+
+        # --- presence: leave when idle, come back for events ---
+        pres = {**_DEFAULT_PRESENCE, **(cfg.get("presence") or {})}
+        wake = set(pres.get("wake_on") or [])
+        active = bool(bubble_text) or bool(state.pending_text) or (event is not None and event in wake)
+        if not preview and str(pres.get("mode")) == "on_events":
+            idle_s = max(0.0, float(pres.get("idle_seconds", 10) or 0))
+            exit_s = max(0.05, float(pres.get("exit_seconds", 1.0) or 0.05))
+            enter_s = max(0.05, float(pres.get("enter_seconds", 1.0) or 0.05))
+            if state.phase_started == 0.0:
+                state.phase, state.phase_started, state.last_event_at = "in", now, now
+            if active:
+                state.last_event_at = now
+            ph = state.phase
+            if ph == "in" and not active and now - state.last_event_at >= idle_s:
+                ph, state.phase_started = "leaving", now
+                log.info("sprite %s leaving (%s)", widget.id[:8], pres.get("direction"))
+            if ph == "leaving":
+                p = min(1.0, (now - state.phase_started) / exit_s)
+                if active:  # called back mid-exit: turn around from where it is
+                    ph, state.phase_started = "entering", now - (1.0 - p) * enter_s
+                elif p >= 1.0:
+                    ph, state.phase_started = "out", now
+            if ph == "out" and active:
+                ph, state.phase_started = "entering", now
+                log.info("sprite %s returning for %s", widget.id[:8], event or "bubble")
+            if ph == "entering" and (now - state.phase_started) / enter_s >= 1.0:
+                ph, state.phase_started = "in", now
+            state.phase = ph
+        else:
+            state.phase = "in"
+
+        ph = state.phase
+        off = 0
+        if ph == "out":
+            return  # fully off the panel: nothing to draw (bubble included)
+        if ph in ("leaving", "entering"):
+            direction = str(pres.get("direction", "left"))
+            dist = {"left": x + bw, "right": cw - x, "up": y + bh, "down": ch - y}.get(direction, x + bw)
+            secs = max(0.05, float(pres.get("exit_seconds" if ph == "leaving" else "enter_seconds", 1.0) or 0.05))
+            p = min(1.0, (now - state.phase_started) / secs)
+            off = round(dist * (p if ph == "leaving" else 1.0 - p))
+            self._note_anim(33.0, 0)  # smooth motion
+            travel_clip = pres.get("exit_clip" if ph == "leaving" else "enter_clip") or ""
+            if travel_clip:
+                clip_name = travel_clip
+        ddx, ddy = {"left": (-off, 0), "right": (off, 0), "up": (0, -off), "down": (0, off)}.get(
+            str(pres.get("direction", "left")), (-off, 0)
+        )
+        settled = ph == "in"
+
+        # --- typewriter: text reveals at `cps`; for dialogue (say/notification)
+        # the talking animation plays only while characters are arriving, then
+        # the sprite returns to music/idle while the bubble lingers `hold` s.
+        # Event emotes (a new track etc.) keep their animation for their window.
         cps = max(2.0, float(bub.get("cps", 18) or 18))
         hold = max(0.0, float(bub.get("hold", 1.5) or 0))
         reveal = None
         if not preview:
-            if bubble_text:
-                if bubble_text != state.bubble_text:
-                    state.bubble_text = bubble_text
-                    state.bubble_started = now
-            elif state.bubble_text:
-                done_at = state.bubble_started + visible_chars(state.bubble_text) / cps + hold
-                if now < done_at:
-                    bubble_text = state.bubble_text  # source gone; let it finish + linger
-                else:
-                    state.bubble_text = ""
-            if bubble_text:
-                reveal = int((now - state.bubble_started) * cps)
-                if reveal < visible_chars(bubble_text):
-                    self._note_anim(1000.0 / cps, 0)  # tick per character
-                else:
-                    np = self._music.now_playing() if self._music else None
-                    music_clip = next((t.clip for t in sp.triggers if t.event == "music" and t.clip), "")
-                    clip_name = music_clip if (np and np.playing and music_clip) else (sp.idle_clip or "idle")
+            if not settled:
+                if bubble_text:
+                    state.pending_text = bubble_text  # start typing once it's in
+                bubble_text = ""
+            else:
+                if not bubble_text and state.pending_text:
+                    bubble_text = state.pending_text
+                state.pending_text = ""
+                if bubble_text:
+                    if bubble_text != state.bubble_text:
+                        state.bubble_text = bubble_text
+                        state.bubble_started = now
+                elif state.bubble_text:
+                    done_at = state.bubble_started + visible_chars(state.bubble_text) / cps + hold
+                    if now < done_at:
+                        bubble_text = state.bubble_text  # source gone; let it finish + linger
+                    else:
+                        state.bubble_text = ""
+                if bubble_text:
+                    reveal = int((now - state.bubble_started) * cps)
+                    if reveal < visible_chars(bubble_text):
+                        self._note_anim(1000.0 / cps, 0)  # tick per character
+                    elif event in (None, "say", "notification"):
+                        np = self._music.now_playing() if self._music else None
+                        music_clip = next((t.clip for t in sp.triggers if t.event == "music" and t.clip), "")
+                        clip_name = music_clip if (np and np.playing and music_clip) else (sp.idle_clip or "idle")
+
         clip_name, clip = sp.clip_or_fallback(clip_name)
         if clip_name != state.clip:
+            if not preview:
+                log.info("sprite %s: %s -> %s (%s)", widget.id[:8], state.clip or "-", clip_name, event or "idle")
             state.clip = clip_name
             state.clip_started = now  # a new clip starts from its first frame
 
@@ -683,22 +954,21 @@ class SceneRunner:
         im = frames[max(0, min(len(frames) - 1, idx))]
         # Frames can differ in size (several regions); place this one inside the
         # widget box (largest frame × scale) by the sprite's anchor.
-        bw, bh = sp.box
-        bw, bh = bw * scale, bh * scale
         ox, oy = anchor_offset(sp.anchor, bw, bh, im.width, im.height)
-        base.paste(im, (x + ox, y + oy), im)
+        px, py = x + ddx, y + ddy
+        base.paste(im, (px + ox, py + oy), im)
 
-        if bubble_text:
+        if bubble_text and settled:
             font = get_font(bub.get("font")) if bub.get("font") else widget_font(widget)
             bscale = max(1, int(bub.get("scale", 1) or 1))
             side = str(bub.get("side", "auto"))
             box = None
             b = bub.get("box")
             if side == "custom" and isinstance(b, dict):
-                box = (x + int(b.get("dx", 0)), y + int(b.get("dy", 0)),
+                box = (px + int(b.get("dx", 0)), py + int(b.get("dy", 0)),
                        max(4, int(b.get("w", 24))), max(4, int(b.get("h", 12))))
             draw_bubble(
-                base, bubble_text, (x, y, bw, bh),
+                base, bubble_text, (px, py, bw, bh),
                 font=font, scale=bscale, side=side,
                 style=str(bub.get("style", "light")), box=box, reveal=reveal,
                 radius=int(bub.get("radius", 2) or 0),

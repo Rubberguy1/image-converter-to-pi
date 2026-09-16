@@ -78,7 +78,11 @@ export const api = {
 
   pushSceneValue: (name, value) => send("/api/scene/value", "POST", { name, value }),
 
-  scenePreviewUrl: (scene) => blobUrl("/api/scene/preview", "POST", scene),
+  scenePreviewUrl: (scene, music = false) =>
+    blobUrl(`/api/scene/preview${music ? "?music=1" : ""}`, "POST", scene),
+
+  // Live audio levels (0..1 per band) for the music-mode waveform.
+  pushMusicLevels: (bands) => send("/api/music/levels", "POST", { bands }),
 
   perf: () => get("/api/perf"),
 
